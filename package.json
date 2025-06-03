@@ -5,14 +5,15 @@
   "main": "dist/server.js",
   "scripts": {
     "dev": "nodemon",
-    "build": "tsc",
-    "start": "npm run build && node dist/server.js",
-    "start:prod": "npm run build && NODE_ENV=production node dist/server.js",
+    "build": "rimraf dist && tsc",
+    "start": "node -r tsconfig-paths/register dist/server.js",
+    "start:prod": "NODE_ENV=production node -r tsconfig-paths/register dist/server.js",
     "lint": "eslint src/**/*.ts",
     "lint:fix": "eslint src/**/*.ts --fix",
-    "clean": "if exist dist rmdir /s /q dist",
+    "clean": "rimraf dist",
     "typecheck": "tsc --noEmit",
-    "setup": "npm install && copy .env.example .env"
+    "setup": "npm install && copy .env.example .env",
+    "postinstall": "npm run build"
   },
   "keywords": ["echo-party", "movie", "sync", "realtime", "websocket", "watch-together"],
   "author": "Echo Party Team",
@@ -55,6 +56,7 @@
     "@typescript-eslint/parser": "^7.1.0",
     "eslint": "^8.57.0",
     "nodemon": "^3.1.0",
+    "rimraf": "^5.0.5",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
     "typescript": "^5.3.3"
