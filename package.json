@@ -5,15 +5,13 @@
   "main": "dist/server.js",
   "scripts": {
     "dev": "nodemon",
-    "build": "rimraf dist && tsc",
-    "start": "node -r tsconfig-paths/register dist/server.js",
-    "start:prod": "NODE_ENV=production node -r tsconfig-paths/register dist/server.js",
+    "build": "npx rimraf dist && tsc",
+    "start": "node dist/server.js",
     "lint": "eslint src/**/*.ts",
     "lint:fix": "eslint src/**/*.ts --fix",
-    "clean": "rimraf dist",
+    "clean": "npx rimraf dist",
     "typecheck": "tsc --noEmit",
-    "setup": "npm install && copy .env.example .env",
-    "postinstall": "npm run build"
+    "setup": "npm install && copy .env.example .env"
   },
   "keywords": ["echo-party", "movie", "sync", "realtime", "websocket", "watch-together"],
   "author": "Echo Party Team",
