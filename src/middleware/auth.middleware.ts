@@ -1,109 +1,34 @@
+// middleware/auth.middleware.ts
 import { Request, Response, NextFunction } from 'express';
-import passport from 'passport';
-import { Strategy as GoogleStrategy, Profile as GoogleProfile, VerifyCallback } from 'passport-google-oauth20';
-import { Strategy as JwtStrategy, ExtractJwt, VerifiedCallback } from 'passport-jwt';
+import jwt from 'jsonwebtoken';
 import { AuthRequest } from '../types';
-import { User } from '../models/user.model';
-import { AuthService } from '../services/auth.service';
 import { config } from '../config';
 import { IUser } from '../types';
 
-// Define interfaces for the JWT payload and Google Profile
-interface JwtPayload {
-  sub: string;
-  [key: string]: any;
-}
-
-// Configure Passport strategies
-passport.use(
-  new GoogleStrategy(
-    {
-      clientID: config.google.clientId,
-      clientSecret: config.google.clientSecret,
-      callbackURL: `${config.app.baseUrl}/api/v1/auth/google/callback`,
-      passReqToCallback: true,
-    },
-    async (
-      req: Request,
-      accessToken: string,
-      refreshToken: string,
-      profile: GoogleProfile,
-      done: VerifyCallback
-    ) => {
-      try {
-        const user = await AuthService.findOrCreateUser(profile);
-        return done(null, user);
-      } catch (error) {
-        return done(error as Error, false);
-      }
-    }
-  )
-);
-
-// JWT Strategy
-passport.use(
-  new JwtStrategy(
-    {
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-      secretOrKey: config.jwt.secret,
-    },
-    async (payload: JwtPayload, done: VerifiedCallback) => {
-      try {
-        const user = await User.findById(payload.sub);
-        if (!user) {
-          return done(null, false);
-        }
-        return done(null, user);
-      } catch (error) {
-        return done(error as Error, false);
-      }
-    }
-  )
-);
-
-// JWT Authentication middleware
 export const authenticateJWT = (
   req: Request,
   res: Response,
   next: NextFunction
-): void => {
-  passport.authenticate(
-    'jwt',
-    { session: false },
-    (err: Error | null, user: IUser | false) => {
-      if (err) {
-        return res.status(401).json({ 
-          success: false,
-          error: 'Authentication error',
-          message: err.message 
-        });
-      }
-      
-      if (!user) {
-        return res.status(401).json({ 
-          success: false,
-          error: 'Unauthorized',
-          message: 'Invalid or expired token' 
-        });
-      }
+) => {
+  const authHeader = req.headers.authorization;
+  
+  if (!authHeader?.startsWith('Bearer ')) {
+    return res.status(401).json({ 
+      success: false,
+      error: 'No token provided'
+    });
+  }
 
-      // Set user in request object and continue
-      (req as AuthRequest).user = user;
-      return next();
-    }
-  )(req, res, next);
+  const token = authHeader && authHeader.split(" ")[1];
+
+  try {
+    const decoded = jwt.verify(token, config.jwt.secret) as IUser;
+    (req as AuthRequest).user = decoded;
+    next();
+  } catch (error) {
+    res.status(401).json({ 
+      success: false,
+      error: 'Invalid or expired token'
+    });
+  }
 };
-
-// Google OAuth middleware
-export const authenticateGoogle = passport.authenticate('google', {
-  scope: ['profile', 'email'],
-  prompt: 'select_account',
-  accessType: 'offline',
-} as passport.AuthenticateOptions);
-
-export const authenticateGoogleCallback = passport.authenticate('google', {
-  session: false,
-  successFlash: true,
-  failureFlash: true,
-  failureRedirect: `${config.google.redirectLink}?error=auth_failed`,
-} as passport.AuthenticateOptions);
