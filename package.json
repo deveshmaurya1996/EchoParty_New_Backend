@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "nodemon",
     "build": "tsc",
-    "build:prod": "tsc --noEmit false --skipTypeCheck",
+    "build:prod": "tsc --transpileOnly",
     "start": "node dist/server.js",
     "lint": "eslint src/**/*.ts",
     "lint:fix": "eslint src/**/*.ts --fix",
