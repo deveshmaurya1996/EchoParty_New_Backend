@@ -4,10 +4,10 @@
   "description": "Backend for Echo Party - Watch movies together in real-time",
   "main": "dist/server.js",
   "scripts": {
-    "dev": "nodemon",
+    "dev": "nodemon --exec ts-node -r tsconfig-paths/register src/server.ts",
     "build": "tsc",
-    "build:prod": "tsc",
-    "start": "node dist/server.js",
+    "build:prod": "tsc --skipLibCheck",
+    "start": "node -r ts-node/register/transpile-only -r tsconfig-paths/register dist/server.js",
     "lint": "eslint src/**/*.ts",
     "lint:fix": "eslint src/**/*.ts --fix",
     "clean": "rm -rf dist",
@@ -15,7 +15,14 @@
     "setup": "npm install && copy .env.example .env",
     "postinstall": "npm run build:prod"
   },
-  "keywords": ["echo-party", "movie", "sync", "realtime", "websocket", "watch-together"],
+  "keywords": [
+    "echo-party",
+    "movie",
+    "sync",
+    "realtime",
+    "websocket",
+    "watch-together"
+  ],
   "author": "Echo Party Team",
   "license": "ISC",
   "dependencies": {
@@ -52,6 +59,7 @@
     "@types/passport": "^1.0.16",
     "@types/passport-google-oauth20": "^2.0.14",
     "@types/passport-jwt": "^4.0.1",
+    "@types/socket.io": "^3.0.2",
     "@typescript-eslint/eslint-plugin": "^7.1.0",
     "@typescript-eslint/parser": "^7.1.0",
     "eslint": "^8.57.0",
@@ -59,5 +67,8 @@
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
     "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=16.0.0"
   }
 }
