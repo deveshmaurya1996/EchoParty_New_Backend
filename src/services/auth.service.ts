@@ -6,22 +6,31 @@ import { logger } from '../utils/logger';
 
 
 export class AuthService {
-  static generateToken(userId: string): string {
-    return jwt.sign({ userId }, config.jwt.secret, {
+  static generateToken(user: IUser): string {
+    return jwt.sign({ user }, config.jwt.secret, {
       expiresIn: config.jwt.expiresIn,
     } as SignOptions);
   }
 
-  static generateRefreshToken(userId: string): string {
-    return jwt.sign({ userId, type: 'refresh' }, config.jwt.secret, {
+  static generateRefreshToken(user: IUser): string {
+    return jwt.sign({ user, type: 'refresh' }, config.jwt.secret, {
       expiresIn: config.jwt.refreshExpiresIn,
     } as SignOptions);
   }
 
   static async generateTokens(user: IUser) {
-    const accessToken = this.generateToken(user._id.toString());
-    const refreshToken = this.generateRefreshToken(user._id.toString());
-    await this.updateRefreshToken(user._id.toString(), refreshToken);
+    const tokenUser = {
+      _id: user._id,
+      googleId: user.googleId,
+      email: user.email,
+      name: user.name,
+      avatar: user.avatar,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt
+    }
+    const accessToken = this.generateToken(tokenUser);
+    const refreshToken = this.generateRefreshToken(tokenUser);
+    await this.updateRefreshToken(tokenUser._id.toString(), refreshToken);
     return { accessToken, refreshToken };
   }
 
@@ -78,16 +87,28 @@ export class AuthService {
     return this.generateTokens(user);
   }
 
-  static async logout(user: IUser) {
-    await this.updateRefreshToken(user._id.toString(), null);
-  }
-
   static async getUserProfile(user: IUser) {
-    return {
-      id: user._id,
-      email: user.email,
-      name: user.name,
-      avatar: user.avatar,
-    };
+    try {
+      if (!user || !user._id) {
+        throw new Error('Invalid user data');
+      }
+
+      const freshUser :IUser = await User.findById(user._id);
+      if (!freshUser) {
+        throw new Error('User not found in database');
+      }
+      
+      return {
+        id: freshUser._id,
+        email: freshUser.email,
+        name: freshUser.name,
+        avatar: freshUser.avatar,
+        createdAt: freshUser.createdAt,
+        updatedAt: freshUser.updatedAt
+      };
+    } catch (error) {
+      logger.error('Error in getUserProfile:', error);
+      throw error;
+    }
   }
 }

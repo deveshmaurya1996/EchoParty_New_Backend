@@ -78,14 +78,15 @@ export class AuthController {
 
   static getProfile = async (req: Request, res: Response): Promise<void> => {
     try {
-      const user = await User.findById((req as AuthRequest).user._id);
+      const user = (req as AuthRequest).user;
       if (!user) {
         throw new Error('User not found');
       }
-      
+      const freshUser = await AuthService.getUserProfile(user)
+
       res.json({ 
         success: true, 
-        data: await AuthService.getUserProfile(user)
+        data: freshUser
       });
     } catch (error) {
       res.status(500).json({ 
