@@ -71,11 +71,25 @@ export const authenticateJWT = (
     'jwt',
     { session: false },
     (err: Error | null, user: IUser | false) => {
-      if (err || !user) {
-        return res.status(401).json({ error: 'Unauthorized' });
+      if (err) {
+        return res.status(401).json({ 
+          success: false,
+          error: 'Authentication error',
+          message: err.message 
+        });
       }
-      (req as AuthRequest).user = user as IUser;
-      next();
+      
+      if (!user) {
+        return res.status(401).json({ 
+          success: false,
+          error: 'Unauthorized',
+          message: 'Invalid or expired token' 
+        });
+      }
+
+      // Set user in request object and continue
+      (req as AuthRequest).user = user;
+      return next();
     }
   )(req, res, next);
 };
