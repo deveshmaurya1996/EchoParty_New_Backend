@@ -4,77 +4,22 @@ import { IUser } from '../types';
 import { logger } from '../utils/logger';
 
 export class AuthController {
-  // static async googleCallback(req: Request, res: Response) {
-  //   try {
-  //     if (!req.user) {
-  //       res.send(`
-  //         <html>
-  //           <head>
-  //             <title>Authentication Failed</title>
-  //             <script>
-  //               window.location.href = "echoparty://oauth2redirect?error=auth_failed";
-  //             </script>
-  //           </head>
-  //           <body>
-  //             <p>Authentication failed. Redirecting to app...</p>
-  //             <a href="echoparty://oauth2redirect?error=auth_failed">Click here if not redirected automatically</a>
-  //           </body>
-  //         </html>
-  //       `);
-  //       return;
-  //     }
-
-  //     const { accessToken, refreshToken } = await AuthService.generateTokens(req.user as IUser);
-      
-  //     // Send HTML that will redirect to the app
-  //     res.send(`
-  //       <html>
-  //         <head>
-  //           <title>Redirecting to Echo Party...</title>
-  //           <script>
-  //             window.location.href = "echoparty://oauth2redirect?access_token=${encodeURIComponent(accessToken)}&refresh_token=${encodeURIComponent(refreshToken)}";
-  //           </script>
-  //         </head>
-  //         <body>
-  //           <p>Redirecting to Echo Party...</p>
-  //           <a href="echoparty://oauth2redirect?access_token=${encodeURIComponent(accessToken)}&refresh_token=${encodeURIComponent(refreshToken)}">Click here if not redirected automatically</a>
-  //         </body>
-  //       </html>
-  //     `);
-  //   } catch (error) {
-  //     console.error('Google callback error:', error);
-  //     res.send(`
-  //       <html>
-  //         <head>
-  //           <title>Authentication Error</title>
-  //           <script>
-  //             window.location.href = "echoparty://oauth2redirect?error=auth_failed";
-  //           </script>
-  //         </head>
-  //         <body>
-  //           <p>Authentication error. Redirecting to app...</p>
-  //           <a href="echoparty://oauth2redirect?error=auth_failed">Click here if not redirected automatically</a>
-  //         </body>
-  //       </html>
-  //     `);
-  //   }
-  // }
-
 
   static googleCallback = async (req: Request, res: Response): Promise<void> => {
     try {
       const user = req.user as IUser;
       const { accessToken, refreshToken } = await AuthService.generateTokens(user);
-      // Redirect to frontend with tokens
-
-      const redirectUrl = new URL(`${process.env.FRONTEND_URL}`);
+      
+      // Create deep link with tokens
+      const redirectUrl = new URL('echoparty://oauth2redirect');
+      redirectUrl.searchParams.append('status', 'success');
       redirectUrl.searchParams.append('accessToken', encodeURIComponent(accessToken));
       redirectUrl.searchParams.append('refreshToken', encodeURIComponent(refreshToken));
-      console.log("redirectUrl.toString()",redirectUrl.toString())
+      
       res.redirect(redirectUrl.toString());
     } catch (error) {
       logger.error('Google auth callback error:', error);
-      res.redirect(`${process.env.FRONTEND_URL}/auth/error`);
+      res.redirect('echoparty://oauth2redirect?error=auth_failed');
     }
   };
 

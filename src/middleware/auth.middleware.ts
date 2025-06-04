@@ -89,5 +89,8 @@ export const authenticateGoogle = passport.authenticate('google', {
 
 export const authenticateGoogleCallback = passport.authenticate('google', {
   session: false,
+  successFlash: true,
+  failureFlash: true,
+  successRedirect: 'echoparty://oauth2redirect?status=success',
   failureRedirect: 'echoparty://oauth2redirect?error=auth_failed',
 } as passport.AuthenticateOptions);
