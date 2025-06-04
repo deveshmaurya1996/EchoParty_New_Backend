@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "nodemon --exec ts-node -r tsconfig-paths/register src/server.ts",
     "build": "tsc",
-    "build:prod": "tsc --skipLibCheck",
+    "build:prod": "tsc --skipLibCheck --project tsconfig.json",
     "start": "node -r ts-node/register/transpile-only -r tsconfig-paths/register dist/server.js",
     "lint": "eslint src/**/*.ts",
     "lint:fix": "eslint src/**/*.ts --fix",
