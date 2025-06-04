@@ -66,9 +66,10 @@ export class AuthController {
       const user = req.user as IUser;
       const { accessToken, refreshToken } = await AuthService.generateTokens(user);
       // Redirect to frontend with tokens
-      const redirectUrl = new URL(`${process.env.FRONTEND_URL}/auth/success`);
-      redirectUrl.searchParams.append('accessToken', accessToken);
-      redirectUrl.searchParams.append('refreshToken', refreshToken);
+
+      const redirectUrl = new URL(`${process.env.FRONTEND_URL}`);
+      redirectUrl.searchParams.append('accessToken', encodeURIComponent(accessToken));
+      redirectUrl.searchParams.append('refreshToken', encodeURIComponent(refreshToken));
       
       res.redirect(redirectUrl.toString());
     } catch (error) {
