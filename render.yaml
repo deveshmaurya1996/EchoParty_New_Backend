@@ -10,7 +10,7 @@ services:
       - key: PORT
         value: 3000
       - key: API_BASE_URL
-        sync: false
+        value: https://echoparty-new-backend.onrender.com
       - key: MONGO_URI
         sync: false
       - key: JWT_SECRET
