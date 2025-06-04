@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { AuthRequest } from '../types';
 import { MediaService } from '../services/media.service';
 import { logger } from '../utils/logger';
+import { config } from '../config';
 
 export class MediaController {
   static searchYouTube = async (req: Request, res: Response): Promise<void> => {
@@ -49,7 +50,7 @@ export class MediaController {
       const { code, state } = req.query;
 
       if (!code) {
-        res.redirect(`${process.env.FRONTEND_URL}/drive/error`);
+        res.redirect(`${config.google.drive.redirectUri}/drive/error`);
         return;
       }
 
@@ -57,13 +58,13 @@ export class MediaController {
 
       // Store tokens in session or database for the user
       // For now, we'll redirect with tokens (in production, store securely)
-      const redirectUrl = new URL(`${process.env.FRONTEND_URL}/drive/success`);
+      const redirectUrl = new URL(`${config.google.drive.redirectUri}/drive/success`);
       redirectUrl.searchParams.append('tokens', JSON.stringify(tokens));
       
       res.redirect(redirectUrl.toString());
     } catch (error) {
       logger.error('Drive callback error:', error);
-      res.redirect(`${process.env.FRONTEND_URL}/drive/error`);
+      res.redirect(`${config.google.drive.redirectUri}/drive/error`);
     }
   };
 

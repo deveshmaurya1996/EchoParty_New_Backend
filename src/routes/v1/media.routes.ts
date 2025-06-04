@@ -2,6 +2,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import { MediaController } from '../../controllers/media.controller';
 import { authenticateJWT } from '../../middleware/auth.middleware';
+import { config } from '../../config';
 
 const router = Router();
 
@@ -9,7 +10,7 @@ const router = Router();
 const upload = multer({ 
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 100 * 1024 * 1024, // 100MB
+    fileSize: parseInt(config.upload.maxFileSize) * 1024 * 1024,
   },
 });
 

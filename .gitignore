@@ -35,9 +35,6 @@ coverage/
 *.temp
 .DS_Store
 
-# Uploads
-uploads/
-public/uploads/
 
 # Cache
 .cache/

@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { AuthService } from '../services/auth.service';
 import { IUser } from '../types';
 import { logger } from '../utils/logger';
+import { config } from '../config';
 
 export class AuthController {
 
@@ -11,7 +12,7 @@ export class AuthController {
       const { accessToken, refreshToken } = await AuthService.generateTokens(user);
       
       // Create deep link with tokens
-      const redirectUrl = new URL('echoparty://oauth2redirect');
+      const redirectUrl = new URL(config.google.redirectLink);
       redirectUrl.searchParams.append('status', 'success');
       redirectUrl.searchParams.append('accessToken', encodeURIComponent(accessToken));
       redirectUrl.searchParams.append('refreshToken', encodeURIComponent(refreshToken));
@@ -19,7 +20,7 @@ export class AuthController {
       res.redirect(redirectUrl.toString());
     } catch (error) {
       logger.error('Google auth callback error:', error);
-      res.redirect('echoparty://oauth2redirect?error=auth_failed');
+      res.redirect(`${config.google.redirectLink}?error=auth_failed`);
     }
   };
 

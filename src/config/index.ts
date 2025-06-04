@@ -1,11 +1,7 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
-const getRedirectUri = () => {
 
-  const baseUrl = process.env.API_BASE_URL || 'http://localhost:3000';
-  return `${baseUrl}/api/v1/auth/google/callback`;
-};
 
 export const config = {
   app: {
@@ -25,7 +21,7 @@ export const config = {
   google: {
     clientId: process.env.GOOGLE_CLIENT_ID || '',
     clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
-    redirectUri: getRedirectUri(),
+    redirectLink: process.env.GOOGLE_AUTH_REDIRECT_LINK,
     drive: {
       clientId: process.env.GOOGLE_DRIVE_CLIENT_ID || '',
       clientSecret: process.env.GOOGLE_DRIVE_CLIENT_SECRET || '',
@@ -46,7 +42,6 @@ export const config = {
   },
   upload: {
     maxFileSize: process.env.MAX_FILE_SIZE || '100mb',
-    uploadDir: process.env.UPLOAD_DIR || './uploads',
   },
   socket: {
     pingTimeout: parseInt(process.env.SOCKET_PING_TIMEOUT || '60000', 10),
