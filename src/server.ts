@@ -15,6 +15,9 @@ import routes from './routes/v1';
 const app = express();
 const server = createServer(app);
 
+// Trust proxy - important for rate limiting behind a reverse proxy
+app.set('trust proxy', 1);
+
 // Initialize Socket.IO
 const socketService = new SocketService(server);
 

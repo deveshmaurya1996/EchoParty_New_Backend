@@ -70,7 +70,7 @@ export class AuthController {
       const redirectUrl = new URL(`${process.env.FRONTEND_URL}`);
       redirectUrl.searchParams.append('accessToken', encodeURIComponent(accessToken));
       redirectUrl.searchParams.append('refreshToken', encodeURIComponent(refreshToken));
-      
+      console.log("redirectUrl",redirectUrl)
       res.redirect(redirectUrl.toString());
     } catch (error) {
       logger.error('Google auth callback error:', error);
