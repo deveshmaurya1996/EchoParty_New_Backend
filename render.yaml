@@ -3,7 +3,7 @@ services:
     name: echo-party-backend
     env: node
     buildCommand: npm install
-    startCommand: npm run start:prod
+    startCommand: npm run start
     envVars:
       - key: NODE_ENV
         value: production
