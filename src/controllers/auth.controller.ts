@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { AuthService } from '../services/auth.service';
 import { IUser } from '../types';
-import { logger } from '@/utils/logger';
+import { logger } from '../utils/logger';
 
 export class AuthController {
   // static async googleCallback(req: Request, res: Response) {
