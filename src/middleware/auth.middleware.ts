@@ -20,7 +20,7 @@ passport.use(
     {
       clientID: config.google.clientId,
       clientSecret: config.google.clientSecret,
-      callbackURL: config.google.redirectLink,
+      callbackURL: `${config.app.baseUrl}/api/v1/auth/google/callback`,
       passReqToCallback: true,
     },
     async (
@@ -91,6 +91,5 @@ export const authenticateGoogleCallback = passport.authenticate('google', {
   session: false,
   successFlash: true,
   failureFlash: true,
-  successRedirect: `${config.google.redirectLink}?status=success`,
   failureRedirect: `${config.google.redirectLink}?error=auth_failed`,
 } as passport.AuthenticateOptions);
