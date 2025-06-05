@@ -150,21 +150,22 @@ export class RoomController {
       const authReq = req as AuthRequest;
       const { roomId } = req.params;
       const userId = authReq.user!._id.toString();
-
       const room = await RoomService.getRoomById(roomId);
 
       if (!room) {
+        logger.warn('Room not found:', { roomId });
         res.status(404).json({ error: 'Room not found' });
         return;
       }
-
-      if (room.owner.toString() !== userId) {
+      const ownerId = typeof room.owner === 'object' ? room.owner._id.toString() : room.owner;
+      
+      if (ownerId !== userId) {
+        logger.warn('Unauthorized delete attempt:', { roomId, userId, ownerId });
         res.status(403).json({ error: 'Only room owner can delete room' });
         return;
       }
 
       await RoomService.deleteRoom(roomId);
-
       res.json({ message: 'Room deleted successfully' });
     } catch (error) {
       logger.error('Delete room error:', error);

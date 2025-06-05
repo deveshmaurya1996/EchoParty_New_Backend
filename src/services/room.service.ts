@@ -2,6 +2,7 @@ import { Room } from '../models/room.model';
 import { IRoom, PaginatedResponse, PaginationQuery } from '../types';
 import { config } from '../config';
 import { logger } from '../utils/logger';
+import mongoose from 'mongoose';
 
 export class RoomService {
   
@@ -92,9 +93,15 @@ export class RoomService {
   }
 
   static async getRoomById(roomId: string): Promise<IRoom | null> {
-    return Room.findById(roomId)
-      .populate('owner', 'name email avatar')
-      .populate('participants', 'name email avatar');
+    try {
+      const objectId = new mongoose.Types.ObjectId(roomId);
+      return Room.findById(objectId)
+        .populate('owner', 'name email avatar')
+        .populate('participants', 'name email avatar');
+    } catch (error) {
+      logger.error('Error converting roomId to ObjectId:', error);
+      return null;
+    }
   }
 
   static async joinRoom(roomId: string, userId: string): Promise<IRoom | null> {
@@ -167,6 +174,12 @@ export class RoomService {
   }
 
   static async deleteRoom(roomId: string): Promise<void> {
-    await Room.findByIdAndDelete(roomId);
+    try {
+      const objectId = new mongoose.Types.ObjectId(roomId);
+      await Room.findByIdAndDelete(objectId);
+    } catch (error) {
+      logger.error('Error deleting room:', error);
+      throw error;
+    }
   }
 }
