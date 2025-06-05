@@ -3,6 +3,11 @@ import { IRoom } from '../types';
 
 const roomSchema = new Schema<IRoom>(
   {
+    roomId: {
+      type: String,
+      required: true,
+      trim: true,
+    },
     name: {
       type: String,
       required: true,
@@ -49,7 +54,8 @@ const roomSchema = new Schema<IRoom>(
   },
   {
     timestamps: true,
-  }
+    versionKey: false
+  },
 );
 
 // Index for pagination and filtering

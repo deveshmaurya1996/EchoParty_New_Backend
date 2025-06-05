@@ -5,7 +5,6 @@ export interface AuthRequest extends Request {
   user?: IUser;
 }
 
-
 export interface IUser {
   _id: Types.ObjectId;
   googleId: string;
@@ -19,6 +18,7 @@ export interface IUser {
 
 export interface IRoom {
   _id: Types.ObjectId;
+  roomId:string;
   name: string;
   owner: Types.ObjectId | IUser;
   type: 'youtube' | 'movie';
@@ -51,15 +51,14 @@ export interface INotification {
   updatedAt: Date;
 }
 
-export interface AuthRequest extends Request {
-  user?: IUser;
-}
-
 export interface PaginationQuery {
   page?: number;
   limit?: number;
   sort?: string;
   order?: 'asc' | 'desc';
+  type?: string;
+  active?: boolean;
+  roomFilterType?: 'recent' | 'created' | 'participated';
 }
 
 export interface PaginatedResponse<T> {

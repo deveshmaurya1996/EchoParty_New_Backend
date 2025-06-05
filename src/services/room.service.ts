@@ -3,15 +3,27 @@ import { IRoom, PaginatedResponse, PaginationQuery } from '../types';
 import { config } from '../config';
 import { logger } from '../utils/logger';
 
-
 export class RoomService {
+  
+  private static generateRoomId(): string {
+    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let result = '';
+    for (let i = 0; i < 6; i++) {
+      const randomIndex = Math.floor(Math.random() * characters.length);
+      result += characters[randomIndex];
+    }
+    return result;
+  }
+
   static async createRoom(
     name: string,
     type: 'youtube' | 'movie',
     ownerId: string
   ): Promise<IRoom> {
     try {
+      const roomId = this.generateRoomId();
       const room = await Room.create({
+        roomId,
         name,
         type,
         owner: ownerId,
@@ -28,26 +40,33 @@ export class RoomService {
 
   static async getRooms(
     userId: string,
-    query: PaginationQuery & { type?: string; active?: boolean }
+    query: PaginationQuery
   ): Promise<PaginatedResponse<IRoom>> {
     const page = Math.max(1, query.page || 1);
-    const limit = Math.min(query.limit || config.pagination.defaultPageSize, config.pagination.maxPageSize);
+    let limit = Math.min(query.limit || config.pagination.defaultPageSize, config.pagination.maxPageSize);
     const skip = (page - 1) * limit;
 
-    const filter: any = {
-      $or: [
-        { owner: userId },
-        { participants: userId }
-      ]
-    };
+    const filter: any = {};
 
-    if (query.type) {
-      filter.type = query.type;
+    switch (query.roomFilterType) {
+      case 'created':
+        filter.owner = userId;
+        break;
+      case 'participated':
+        filter.participants = userId;
+        filter.owner = { $ne: userId };
+        break;
+      case 'recent':
+      default:
+        filter.$or = [
+          { owner: userId },
+          { participants: userId }
+        ];
+        limit = limit;
+        break;
     }
 
-    if (query.active !== undefined) {
-      filter.isActive = query.active;
-    }
+    logger.info('Fetching rooms with filter:', { filter, userId, roomFilterType: query.roomFilterType });
 
     const [rooms, total] = await Promise.all([
       Room.find(filter)
@@ -58,6 +77,8 @@ export class RoomService {
         .limit(limit),
       Room.countDocuments(filter),
     ]);
+
+    logger.info('Found rooms:', { count: rooms.length, total, roomFilterType: query.roomFilterType });
 
     return {
       data: rooms,

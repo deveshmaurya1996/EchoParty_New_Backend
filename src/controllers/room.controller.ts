@@ -24,7 +24,7 @@ export class RoomController {
     try {
       const authReq = req as AuthRequest;
       const userId = authReq.user!._id.toString();
-      const { page, limit, type, active, sort, order } = req.query;
+      const { page, limit, type, active, sort, order,roomFilterType } = req.query;
 
       const result = await RoomService.getRooms(userId, {
         page: page ? parseInt(page as string) : undefined,
@@ -33,6 +33,7 @@ export class RoomController {
         active: active === 'true',
         sort: sort as string,
         order: order as 'asc' | 'desc',
+        roomFilterType:roomFilterType as 'recent' | 'created' | 'participated'
       });
 
       res.json(result);

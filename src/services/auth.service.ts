@@ -98,14 +98,7 @@ export class AuthService {
         throw new Error('User not found in database');
       }
       
-      return {
-        id: freshUser._id,
-        email: freshUser.email,
-        name: freshUser.name,
-        avatar: freshUser.avatar,
-        createdAt: freshUser.createdAt,
-        updatedAt: freshUser.updatedAt
-      };
+      return freshUser
     } catch (error) {
       logger.error('Error in getUserProfile:', error);
       throw error;
