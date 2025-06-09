@@ -12,7 +12,7 @@ const googleClient = new OAuth2Client(config.google.clientId);
 export class AuthController {
   static googleSignIn = async (req: Request, res: Response): Promise<void> => {
     try {
-      const { idToken } = req.body;
+      const { idToken, requestDriveAccess } = req.body;
 
       if (!idToken) {
         res.status(400).json({ 
@@ -38,7 +38,8 @@ export class AuthController {
         id: payload.sub,
         emails: [{ value: payload.email! }],
         displayName: payload.name,
-        picture: [{ value: payload.picture }]
+        picture: [{ value: payload.picture }],
+        driveAccess: requestDriveAccess || false
       });
 
       // Generate tokens
@@ -48,7 +49,8 @@ export class AuthController {
         success: true,
         data: {
           user: await AuthService.getUserProfile(user),
-          tokens: { accessToken, refreshToken }
+          tokens: { accessToken, refreshToken },
+          needDriveAuth: requestDriveAccess && !user.driveAccess
         }
       });
     } catch (error) {
@@ -59,6 +61,43 @@ export class AuthController {
       });
     }
   };
+
+  static getDriveAuthUrl = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const authUrl = AuthService.getGoogleAuthUrl(true);
+      res.json({ 
+        success: true, 
+        data: { authUrl } 
+      });
+    } catch (error) {
+      logger.error('Get drive auth URL error:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: 'Failed to generate auth URL' 
+      });
+    }
+  };
+
+  static updateDriveAccess = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const authReq = req as AuthRequest;
+      const { hasDriveAccess } = req.body;
+      
+      await AuthService.updateDriveAccess(authReq.user!._id.toString(), hasDriveAccess);
+      
+      res.json({ 
+        success: true, 
+        message: 'Drive access updated' 
+      });
+    } catch (error) {
+      logger.error('Update drive access error:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: 'Failed to update drive access' 
+      });
+    }
+  };
+
 
   static refreshToken = async (req: Request, res: Response): Promise<void> => {
     try {

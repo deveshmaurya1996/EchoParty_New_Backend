@@ -1,11 +1,28 @@
 import mongoose, { Schema } from 'mongoose';
 import { IRoom } from '../types';
 
+const messageSchema = new Schema({
+  userId: {
+    type: Schema.Types.ObjectId,
+    ref: 'User',
+    required: true,
+  },
+  message: {
+    type: String,
+    required: true,
+  },
+  timestamp: {
+    type: Date,
+    default: Date.now,
+  },
+}, { _id: true });
+
 const roomSchema = new Schema<IRoom>(
   {
     roomId: {
       type: String,
       required: true,
+      unique: true,
       trim: true,
     },
     name: {
@@ -20,7 +37,7 @@ const roomSchema = new Schema<IRoom>(
     },
     type: {
       type: String,
-      enum: ['youtube', 'movie'],
+      enum: ['youtube', 'movie', 'music', 'other'],
       required: true,
     },
     participants: [{
@@ -32,6 +49,8 @@ const roomSchema = new Schema<IRoom>(
       title: String,
       duration: Number,
       url: String,
+      thumbnail: String,
+      type: String,
     },
     playbackState: {
       isPlaying: {
@@ -47,6 +66,17 @@ const roomSchema = new Schema<IRoom>(
         default: Date.now,
       },
     },
+    permissions: {
+      allowParticipantControl: {
+        type: Boolean,
+        default: false,
+      },
+      allowedControllers: [{
+        type: Schema.Types.ObjectId,
+        ref: 'User',
+      }],
+    },
+    messages: [messageSchema],
     isActive: {
       type: Boolean,
       default: true,
@@ -58,8 +88,10 @@ const roomSchema = new Schema<IRoom>(
   },
 );
 
-// Index for pagination and filtering
+// Indexes
+roomSchema.index({ roomId: 1 });
 roomSchema.index({ owner: 1, createdAt: -1 });
+roomSchema.index({ participants: 1 });
 roomSchema.index({ isActive: 1, createdAt: -1 });
 
 export const Room = mongoose.model<IRoom>('Room', roomSchema);

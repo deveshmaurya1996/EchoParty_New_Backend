@@ -41,8 +41,7 @@ const limiter = rateLimit({
 
 app.use('/api/', limiter);
 
-// Routes
-app.use('/api/v1', routes);
+
 
 // Health check
 app.get('/health', (req, res) => {
@@ -53,6 +52,10 @@ app.get('/health', (req, res) => {
     timestamp: new Date().toISOString(),
   });
 });
+
+
+// Routes
+app.use('/api/v1', routes);
 
 // Error handling
 app.use(notFound);

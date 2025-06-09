@@ -1,29 +1,40 @@
 import { Router } from 'express';
-import multer from 'multer';
 import { MediaController } from '../../controllers/media.controller';
-import { authenticateJWT } from '../../middleware/auth.middleware';
-import { config } from '../../config';
+import { authMiddleware } from '../../middleware/auth.middleware';
+import { validate } from '../../middleware/validation.middleware';
+import { query, param } from 'express-validator';
 
 const router = Router();
 
-// Configure multer for file uploads
-const upload = multer({ 
-  storage: multer.memoryStorage(),
-  limits: {
-    fileSize: parseInt(config.upload.maxFileSize) * 1024 * 1024,
-  },
-});
-
 // All routes require authentication
-router.use(authenticateJWT);
+router.use(authMiddleware);
 
 // YouTube routes
-router.get('/youtube/search', MediaController.searchYouTube);
-router.get('/youtube/video/:videoId', MediaController.getYouTubeVideo);
+router.get(
+  '/youtube/search',
+  validate([
+    query('q').trim().isLength({ min: 1 }).withMessage('Search query is required'),
+  ]),
+  MediaController.searchYouTube
+);
+
+router.get(
+  '/youtube/video/:videoId',
+  validate([
+    param('videoId').trim().isLength({ min: 1 }),
+  ]),
+  MediaController.getYouTubeVideo
+);
 
 // Google Drive routes
-router.get('/drive/auth', MediaController.getDriveAuthUrl);
-router.get('/drive/callback', MediaController.handleDriveCallback);
-router.post('/drive/upload', upload.single('file'), MediaController.uploadToDrive);
+router.get('/drive/videos', MediaController.getDriveVideos);
+
+router.get(
+  '/drive/video/:fileId/stream',
+  validate([
+    param('fileId').trim().isLength({ min: 1 }),
+  ]),
+  MediaController.getDriveVideoStream
+);
 
 export default router;

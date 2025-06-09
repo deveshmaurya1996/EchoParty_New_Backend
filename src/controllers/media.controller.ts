@@ -2,7 +2,6 @@ import { Request, Response } from 'express';
 import { AuthRequest } from '../types';
 import { MediaService } from '../services/media.service';
 import { logger } from '../utils/logger';
-import { config } from '../config';
 
 export class MediaController {
   static searchYouTube = async (req: Request, res: Response): Promise<void> => {
@@ -33,67 +32,62 @@ export class MediaController {
     }
   };
 
-  static getDriveAuthUrl = async (req: Request, res: Response): Promise<void> => {
+  static getDriveVideos = async (req: Request, res: Response): Promise<void> => {
     try {
       const authReq = req as AuthRequest;
-      const userId = authReq.user!._id.toString();
-      const authUrl = MediaService.getGoogleDriveAuthUrl(userId);
-      res.json({ authUrl });
-    } catch (error) {
-      logger.error('Drive auth URL error:', error);
-      res.status(500).json({ error: 'Failed to generate auth URL' });
-    }
-  };
-
-  static handleDriveCallback = async (req: Request, res: Response): Promise<void> => {
-    try {
-      const { code, state } = req.query;
-
-      if (!code) {
-        res.redirect(`${config.google.drive.redirectUri}/drive/error`);
-        return;
-      }
-
-      const tokens = await MediaService.handleDriveCallback(code as string);
-
-      // Store tokens in session or database for the user
-      // For now, we'll redirect with tokens (in production, store securely)
-      const redirectUrl = new URL(`${config.google.drive.redirectUri}/drive/success`);
-      redirectUrl.searchParams.append('tokens', JSON.stringify(tokens));
       
-      res.redirect(redirectUrl.toString());
-    } catch (error) {
-      logger.error('Drive callback error:', error);
-      res.redirect(`${config.google.drive.redirectUri}/drive/error`);
+      if (!authReq.user!.driveAccess) {
+        res.status(403).json({ 
+          error: 'Drive access not granted',
+          needAuth: true 
+        });
+        return;
+      }
+
+      const userToken = authReq.user!.refreshToken;
+      if (!userToken) {
+        res.status(401).json({ error: 'No authentication token found' });
+        return;
+      }
+
+      const videos = await MediaService.getDriveVideos(userToken);
+      res.json({ videos });
+    } catch (error: any) {
+      logger.error('Get drive videos error:', error);
+      
+      if (error.message.includes('insufficient authentication scopes')) {
+        res.status(403).json({ 
+          error: 'Insufficient permissions. Please re-authenticate with Drive access',
+          needAuth: true 
+        });
+        return;
+      }
+      
+      res.status(500).json({ error: 'Failed to fetch drive videos' });
     }
   };
 
-  static uploadToDrive = async (req: Request, res: Response): Promise<void> => {
+  static getDriveVideoStream = async (req: Request, res: Response): Promise<void> => {
     try {
-      const { tokens } = req.body;
-      const file = req.file;
-
-      if (!file) {
-        res.status(400).json({ error: 'No file provided' });
+      const authReq = req as AuthRequest;
+      const { fileId } = req.params;
+      
+      if (!authReq.user!.driveAccess) {
+        res.status(403).json({ error: 'Drive access not granted' });
         return;
       }
 
-      if (!tokens) {
-        res.status(400).json({ error: 'Drive tokens required' });
+      const userToken = authReq.user!.refreshToken;
+      if (!userToken) {
+        res.status(401).json({ error: 'No authentication token found' });
         return;
       }
 
-      const driveFile = await MediaService.uploadToDrive(
-        JSON.parse(tokens),
-        file.buffer,
-        file.originalname,
-        file.mimetype
-      );
-
-      res.json({ file: driveFile });
+      const streamUrl = await MediaService.getDriveVideoStreamUrl(userToken, fileId);
+      res.json({ streamUrl });
     } catch (error) {
-      logger.error('Drive upload error:', error);
-      res.status(500).json({ error: 'Failed to upload to Google Drive' });
+      logger.error('Get drive video stream error:', error);
+      res.status(500).json({ error: 'Failed to get video stream' });
     }
   };
 }

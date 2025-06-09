@@ -1,12 +1,11 @@
-// middleware/auth.middleware.ts
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { AuthRequest } from '../types';
+import { AuthRequest, IUser } from '../types';
 import { config } from '../config';
-import { IUser } from '../types';
 import { logger } from '../utils/logger';
 
-export const authenticateJWT = (
+
+export const authMiddleware = (
   req: Request,
   res: Response,
   next: NextFunction
@@ -20,17 +19,19 @@ export const authenticateJWT = (
     });
   }
 
-  const token = authHeader && authHeader.split(" ")[1];
+  const token = authHeader.split(" ")[1];
   try {
-    const decoded = jwt.verify(token, config.jwt.secret) as { user: IUser };
-    if (!decoded.user || !decoded.user._id) {
+    const decoded = jwt.verify(token, config.jwt.secret) as { userId: string };
+    
+    if (!decoded.userId) {
       return res.status(401).json({ 
         success: false,
         error: 'Invalid token payload'
       });
     }
 
-    (req as AuthRequest).user = decoded.user;
+    // For now, just set the userId. In a real app, you might want to fetch the full user
+    (req as AuthRequest).user = { _id: decoded.userId } as unknown as IUser;
     next();
   } catch (error) {
     logger.error('JWT verification error:', error);
@@ -40,3 +41,6 @@ export const authenticateJWT = (
     });
   }
 };
+
+// Alias for backward compatibility
+export const authenticateJWT = authMiddleware;

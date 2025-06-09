@@ -7,6 +7,7 @@ const notificationSchema = new Schema<INotification>(
       type: Schema.Types.ObjectId,
       ref: 'User',
       required: true,
+      index: true,
     },
     type: {
       type: String,
@@ -27,14 +28,17 @@ const notificationSchema = new Schema<INotification>(
     read: {
       type: Boolean,
       default: false,
+      index: true,
     },
   },
   {
     timestamps: true,
+    versionKey: false,
   }
 );
 
-// Index for pagination and filtering
-notificationSchema.index({ user: 1, read: 1, createdAt: -1 });
+// Index for efficient queries
+notificationSchema.index({ user: 1, createdAt: -1 });
+notificationSchema.index({ user: 1, read: 1 });
 
 export const Notification = mongoose.model<INotification>('Notification', notificationSchema);

@@ -1,42 +1,22 @@
 import { Request, Response, NextFunction } from 'express';
-import Joi from 'joi';
+import { validationResult, ValidationChain } from 'express-validator';
 
-export const validate = (schema: Joi.ObjectSchema) => {
-  return (req: Request, res: Response, next: NextFunction) => {
-    const { error } = schema.validate(req.body);
-    
-    if (error) {
-      res.status(400).json({
-        error: 'Validation error',
-        details: error.details.map(d => d.message),
-      });
-      return;
+export const validate = (validations: ValidationChain[]) => {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    // Run all validations
+    await Promise.all(validations.map(validation => validation.run(req)));
+
+    const errors = validationResult(req);
+    if (errors.isEmpty()) {
+      return next();
     }
-    
-    next();
+
+    const extractedErrors: any[] = [];
+    errors.array().map(err => extractedErrors.push({ [err.type]: err.msg }));
+
+    return res.status(400).json({
+      success: false,
+      errors: extractedErrors,
+    });
   };
-};
-
-// Validation schemas
-export const schemas = {
-  createRoom: Joi.object({
-    name: Joi.string().required().min(3).max(50),
-    type: Joi.string().valid('youtube', 'movie').required(),
-  }),
-
-  updateRoom: Joi.object({
-    name: Joi.string().min(3).max(50),
-    isActive: Joi.boolean(),
-  }),
-
-  refreshToken: Joi.object({
-    refreshToken: Joi.string().required(),
-  }),
-
-  pagination: Joi.object({
-    page: Joi.number().integer().min(1),
-    limit: Joi.number().integer().min(1).max(100),
-    sort: Joi.string(),
-    order: Joi.string().valid('asc', 'desc'),
-  }),
 };

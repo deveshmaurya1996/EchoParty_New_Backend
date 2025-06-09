@@ -1,44 +1,46 @@
-import { logger } from '../utils/logger';
 import { Request, Response, NextFunction } from 'express';
+import { logger } from '../utils/logger';
+
+export const notFound = (req: Request, res: Response, next: NextFunction) => {
+  const error = new Error(`Not Found - ${req.originalUrl}`);
+  res.status(404);
+  next(error);
+};
 
 export const errorHandler = (
-  err: any,
+  err: Error,
   req: Request,
   res: Response,
   next: NextFunction
 ) => {
-  logger.error('Error:', err);
+  let statusCode = res.statusCode === 200 ? 500 : res.statusCode;
+  let message = err.message;
 
-  if (err.name === 'ValidationError') {
-    res.status(400).json({
-      error: 'Validation Error',
-      details: Object.values(err.errors).map((e: any) => e.message),
-    });
-    return;
-  }
-
+  // Mongoose bad ObjectId
   if (err.name === 'CastError') {
-    res.status(400).json({
-      error: 'Invalid ID format',
-    });
-    return;
+    message = 'Resource not found';
+    statusCode = 404;
   }
 
-  if (err.code === 11000) {
-    res.status(400).json({
-      error: 'Duplicate value',
-      field: Object.keys(err.keyValue)[0],
-    });
-    return;
+  // Mongoose duplicate key
+  if ((err as any).code === 11000) {
+    message = 'Duplicate field value entered';
+    statusCode = 400;
   }
 
-  res.status(err.status || 500).json({
-    error: err.message || 'Internal server error',
-  });
-};
+  // Mongoose validation error
+  if (err.name === 'ValidationError') {
+    message = Object.values((err as any).errors)
+      .map((val: any) => val.message)
+      .join(', ');
+    statusCode = 400;
+  }
 
-export const notFound = (req: Request, res: Response) => {
-  res.status(404).json({
-    error: 'Route not found',
+  logger.error(err);
+
+  res.status(statusCode).json({
+    success: false,
+    error: message,
+    ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
   });
 };

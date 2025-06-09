@@ -1,15 +1,16 @@
 import axios from 'axios';
 import { google } from 'googleapis';
-import { OAuth2Client } from 'googleapis-common';
+import { OAuth2Client } from 'google-auth-library';
 import { config } from '../config';
 import { GoogleDriveFile, YouTubeVideo } from '../types';
 import { logger } from '../utils/logger';
+import { AuthService } from './auth.service';
 
 export class MediaService {
   private static oauth2Client = new OAuth2Client(
-    config.google.drive.clientId,
-    config.google.drive.clientSecret,
-    config.google.drive.redirectUri
+    config.google.clientId,
+    config.google.clientSecret,
+    config.google.redirectLink
   );
 
   static async searchYouTube(query: string): Promise<YouTubeVideo[]> {
@@ -77,73 +78,89 @@ export class MediaService {
     }
   }
 
-  static getGoogleDriveAuthUrl(userId: string): string {
-    const scopes = [config.google.drive.scope];
-    
-    return this.oauth2Client.generateAuthUrl({
-      access_type: 'offline',
-      scope: scopes,
-      state: userId,
-    });
-  }
-
-  static async handleDriveCallback(code: string): Promise<any> {
-    const { tokens } = await this.oauth2Client.getToken(code);
-    return tokens;
-  }
-
-  static async uploadToDrive(
-    tokens: any,
-    fileData: Buffer,
-    fileName: string,
-    mimeType: string
-  ): Promise<GoogleDriveFile> {
+  static async getDriveVideos(userRefreshToken: string): Promise<GoogleDriveFile[]> {
     try {
-      this.oauth2Client.setCredentials(tokens);
+      // Get access token from refresh token
+      const accessToken = await AuthService.getGoogleTokenFromRefreshToken(userRefreshToken);
+      
+      this.oauth2Client.setCredentials({ access_token: accessToken });
       const drive = google.drive({ version: 'v3', auth: this.oauth2Client });
 
-      const response = await drive.files.create({
-        requestBody: {
-          name: fileName,
-          mimeType: mimeType,
-        },
-        media: {
-          mimeType: mimeType,
-          body: fileData,
-        },
-        fields: 'id,name,mimeType,size,webViewLink,webContentLink',
+      // First, find or create the "Echo Party Videos" folder
+      const folderResponse = await drive.files.list({
+        q: "name='Echo Party Videos' and mimeType='application/vnd.google-apps.folder' and trashed=false",
+        fields: 'files(id, name)',
+        spaces: 'drive',
       });
 
-      // Make file publicly accessible
-      await drive.permissions.create({
-        fileId: response.data.id!,
-        requestBody: {
-          role: 'reader',
-          type: 'anyone',
-        },
+      if (!folderResponse.data.files || folderResponse.data.files.length === 0) {
+        // Create the folder if it doesn't exist
+        const createFolderResponse = await drive.files.create({
+          requestBody: {
+            name: 'Echo Party Videos',
+            mimeType: 'application/vnd.google-apps.folder',
+          },
+          fields: 'id',
+        });
+
+        const folderId = createFolderResponse.data.id;
+        logger.info(`Created "Echo Party Videos" folder with ID: ${folderId}`);
+        return []; // No videos yet in new folder
+      }
+
+      const folderId = folderResponse.data.files[0].id;
+
+      // Get all video files from the folder
+      const videosResponse = await drive.files.list({
+        q: `'${folderId}' in parents and (mimeType contains 'video/' or mimeType='application/x-matroska') and trashed=false`,
+        fields: 'files(id, name, size, mimeType, webViewLink, webContentLink, thumbnailLink, createdTime, modifiedTime)',
+        orderBy: 'modifiedTime desc',
+        pageSize: 100,
       });
 
-      return response.data as GoogleDriveFile;
-    } catch (error) {
-      logger.error('Google Drive upload error:', error);
-      throw new Error('Failed to upload to Google Drive');
+      const videos = videosResponse.data.files || [];
+
+      // Process videos
+      for (const video of videos) {
+        // Generate thumbnail if not available
+        if (!video.thumbnailLink) {
+          video.thumbnailLink = `https://drive.google.com/thumbnail?id=${video.id}&sz=w320`;
+        }
+
+        // Ensure video has proper permissions
+        try {
+          await drive.permissions.create({
+            fileId: video.id!,
+            requestBody: {
+              role: 'reader',
+              type: 'anyone',
+              allowFileDiscovery: false,
+            },
+          });
+        } catch (error) {
+          logger.debug(`Permission might already exist for file ${video.id}`);
+        }
+      }
+
+      return videos as GoogleDriveFile[];
+    } catch (error: any) {
+      logger.error('Google Drive fetch error:', error);
+      if (error.message?.includes('insufficient authentication scopes')) {
+        throw new Error('insufficient authentication scopes');
+      }
+      throw new Error('Failed to fetch videos from Google Drive');
     }
   }
 
-  static async getDriveFile(tokens: any, fileId: string): Promise<GoogleDriveFile> {
+  static async getDriveVideoStreamUrl(userRefreshToken: string, fileId: string): Promise<string> {
     try {
-      this.oauth2Client.setCredentials(tokens);
-      const drive = google.drive({ version: 'v3', auth: this.oauth2Client });
-
-      const response = await drive.files.get({
-        fileId: fileId,
-        fields: 'id,name,mimeType,size,webViewLink,webContentLink',
-      });
-
-      return response.data as GoogleDriveFile;
+      const accessToken = await AuthService.getGoogleTokenFromRefreshToken(userRefreshToken);
+      
+      // For streaming, we'll use the webContentLink with the access token
+      return `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&access_token=${accessToken}`;
     } catch (error) {
-      logger.error('Google Drive file fetch error:', error);
-      throw new Error('Failed to fetch Google Drive file');
+      logger.error('Get drive video stream error:', error);
+      throw new Error('Failed to get video stream URL');
     }
   }
 }

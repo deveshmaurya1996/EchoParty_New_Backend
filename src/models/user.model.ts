@@ -24,6 +24,10 @@ const userSchema = new Schema<IUser>(
     refreshToken: {
       type: String,
     },
+    driveAccess: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true,

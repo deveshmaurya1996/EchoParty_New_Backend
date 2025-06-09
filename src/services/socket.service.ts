@@ -2,15 +2,14 @@ import { Server as HttpServer } from 'http';
 import { Server, Socket } from 'socket.io';
 import jwt from 'jsonwebtoken';
 import { config } from '../config';
-import { MediaSyncData } from '../types';
+import { MediaSyncData, ChatMessage } from '../types';
 import { RoomService } from './room.service';
 import { logger } from '../utils/logger';
-
 
 export class SocketService {
   private io: Server;
   private userSocketMap: Map<string, string> = new Map();
-  private roomUserMap: Map<string, Set<string>> = new Map();
+  private roomUserMap: Map<string, Set<string>> = new Map(); // Using room codes as keys
 
   constructor(server: HttpServer) {
     this.io = new Server(server, {
@@ -55,10 +54,10 @@ export class SocketService {
     
     this.userSocketMap.set(userId, socket.id);
 
-    // Join room
-    socket.on('join-room', async (roomId: string) => {
+    // Join room - expects room code
+    socket.on('join-room', async (roomCode: string) => {
       try {
-        const room = await RoomService.getRoomById(roomId);
+        const room = await RoomService.getRoomByCode(roomCode);
         
         if (!room) {
           socket.emit('error', { message: 'Room not found' });
@@ -84,24 +83,24 @@ export class SocketService {
           }
         });
 
-        // Join new room
-        socket.join(roomId);
-        this.addUserToRoom(userId, roomId);
+        // Join new room using room code
+        socket.join(roomCode);
+        this.addUserToRoom(userId, roomCode);
 
         // Notify others
-        socket.to(roomId).emit('user-joined', {
+        socket.to(roomCode).emit('user-joined', {
           userId,
-          roomId,
-          participants: Array.from(this.roomUserMap.get(roomId) || []),
+          roomCode,
+          participants: Array.from(this.roomUserMap.get(roomCode) || []),
         });
 
         // Send current room state
         socket.emit('room-state', {
           room,
-          participants: Array.from(this.roomUserMap.get(roomId) || []),
+          participants: Array.from(this.roomUserMap.get(roomCode) || []),
         });
 
-        logger.info(`User ${userId} joined room ${roomId}`);
+        logger.info(`User ${userId} joined room ${roomCode}`);
       } catch (error) {
         logger.error('Error joining room:', error);
         socket.emit('error', { message: 'Failed to join room' });
@@ -111,65 +110,153 @@ export class SocketService {
     // Media sync events
     socket.on('media-sync', async (data: MediaSyncData) => {
       try {
-        const { roomId, action, currentTime, mediaId } = data;
+        const { roomId: roomCode, action, currentTime, mediaId, mediaData } = data;
         
-        // Update room state in database
+        // Get room by code first
+        const room = await RoomService.getRoomByCode(roomCode);
+        if (!room) {
+          socket.emit('error', { message: 'Room not found' });
+          return;
+        }
+
+        // Check if user can control media using MongoDB _id
+        const canControl = await RoomService.canUserControlMedia(room._id.toString(), userId);
+        
+        if (!canControl) {
+          socket.emit('error', { message: 'You do not have permission to control media' });
+          return;
+        }
+
+        // Update room state in database using MongoDB _id
         if (action === 'play' || action === 'pause') {
-          await RoomService.updatePlaybackState(roomId, {
+          await RoomService.updatePlaybackState(room._id.toString(), {
             isPlaying: action === 'play',
             currentTime: currentTime || 0,
           });
         } else if (action === 'seek') {
-          await RoomService.updatePlaybackState(roomId, {
+          await RoomService.updatePlaybackState(room._id.toString(), {
             currentTime: currentTime || 0,
           });
-        } else if (action === 'load' && mediaId) {
-          // Handle media loading based on room type
-          const room = await RoomService.getRoomById(roomId);
-          if (room) {
-            // Update current media
-            await RoomService.updateRoomMedia(roomId, {
-              id: mediaId,
-              // Additional media info can be fetched here
-            });
-          }
+        } else if (action === 'load' && mediaData) {
+          // Update current media
+          await RoomService.updateRoomMedia(room._id.toString(), mediaData);
         }
 
-        // Broadcast to all users in the room except sender
-        socket.to(roomId).emit('media-sync', {
+        // Broadcast to all users in the room except sender (using room code)
+        socket.to(roomCode).emit('media-sync', {
           ...data,
           userId,
           timestamp: Date.now(),
         });
 
-        logger.info(`Media sync event: ${action} in room ${roomId} by user ${userId}`);
+        logger.info(`Media sync event: ${action} in room ${roomCode} by user ${userId}`);
       } catch (error) {
         logger.error('Error in media sync:', error);
         socket.emit('error', { message: 'Failed to sync media' });
       }
     });
 
-    // Chat messages (for future implementation)
-    socket.on('chat-message', (roomId: string, message: string) => {
-      socket.to(roomId).emit('chat-message', {
-        userId,
-        message,
-        timestamp: Date.now(),
-      });
+    // Chat messages
+    socket.on('chat-message', async (data: ChatMessage) => {
+      try {
+        const { roomId: roomCode, message } = data;
+        
+        // Get room by code
+        const room = await RoomService.getRoomByCode(roomCode);
+        if (!room) {
+          socket.emit('error', { message: 'Room not found' });
+          return;
+        }
+
+        const isParticipant = room.participants.some(
+          (p: any) => p._id.toString() === userId
+        );
+
+        if (!isParticipant) {
+          socket.emit('error', { message: 'Not authorized to send messages' });
+          return;
+        }
+
+        // Save message to database using MongoDB _id
+        const savedMessage = await RoomService.addMessage(room._id.toString(), userId, message);
+        
+        if (!savedMessage) {
+          socket.emit('error', { message: 'Failed to save message' });
+          return;
+        }
+
+        // Broadcast to all users in the room including sender (using room code)
+        this.io.to(roomCode).emit('chat-message', savedMessage);
+
+        logger.info(`Chat message in room ${roomCode} by user ${userId}`);
+      } catch (error) {
+        logger.error('Error in chat message:', error);
+        socket.emit('error', { message: 'Failed to send message' });
+      }
     });
 
-    // Leave room
-    socket.on('leave-room', (roomId: string) => {
-      socket.leave(roomId);
-      this.removeUserFromRoom(userId, roomId);
+    // Request control permission
+    socket.on('request-control', async (roomCode: string) => {
+      try {
+        const room = await RoomService.getRoomByCode(roomCode);
+        
+        if (!room) {
+          socket.emit('error', { message: 'Room not found' });
+          return;
+        }
+
+        const ownerId = typeof room.owner === 'object' ? room.owner._id.toString() : room.owner;
+        
+        // Notify room owner
+        const ownerSocketId = this.userSocketMap.get(ownerId);
+        if (ownerSocketId) {
+          this.io.to(ownerSocketId).emit('control-request', {
+            roomCode,
+            roomId: room._id.toString(), // Include MongoDB _id for reference
+            userId,
+            userName: socket.data.userName,
+          });
+        }
+
+        socket.emit('control-request-sent');
+      } catch (error) {
+        logger.error('Error requesting control:', error);
+        socket.emit('error', { message: 'Failed to request control' });
+      }
+    });
+
+    // Leave room - expects room code
+    socket.on('leave-room', (roomCode: string) => {
+      socket.leave(roomCode);
+      this.removeUserFromRoom(userId, roomCode);
       
-      socket.to(roomId).emit('user-left', {
+      socket.to(roomCode).emit('user-left', {
         userId,
-        roomId,
-        participants: Array.from(this.roomUserMap.get(roomId) || []),
+        roomCode,
+        participants: Array.from(this.roomUserMap.get(roomCode) || []),
       });
 
-      logger.info(`User ${userId} left room ${roomId}`);
+      logger.info(`User ${userId} left room ${roomCode}`);
+    });
+
+    // Get room state - expects room code
+    socket.on('get-room-state', async (roomCode: string) => {
+      try {
+        const room = await RoomService.getRoomByCode(roomCode);
+        
+        if (!room) {
+          socket.emit('error', { message: 'Room not found' });
+          return;
+        }
+
+        socket.emit('room-state', {
+          room,
+          participants: Array.from(this.roomUserMap.get(roomCode) || []),
+        });
+      } catch (error) {
+        logger.error('Error getting room state:', error);
+        socket.emit('error', { message: 'Failed to get room state' });
+      }
     });
 
     // Disconnect
@@ -178,13 +265,13 @@ export class SocketService {
       
       // Remove user from all rooms
       const rooms = Array.from(socket.rooms);
-      rooms.forEach((roomId) => {
-        if (roomId !== socket.id) {
-          this.removeUserFromRoom(userId, roomId);
-          socket.to(roomId).emit('user-left', {
+      rooms.forEach((roomCode) => {
+        if (roomCode !== socket.id) {
+          this.removeUserFromRoom(userId, roomCode);
+          socket.to(roomCode).emit('user-left', {
             userId,
-            roomId,
-            participants: Array.from(this.roomUserMap.get(roomId) || []),
+            roomCode,
+            participants: Array.from(this.roomUserMap.get(roomCode) || []),
           });
         }
       });
@@ -193,19 +280,19 @@ export class SocketService {
     });
   }
 
-  private addUserToRoom(userId: string, roomId: string) {
-    if (!this.roomUserMap.has(roomId)) {
-      this.roomUserMap.set(roomId, new Set());
+  private addUserToRoom(userId: string, roomCode: string) {
+    if (!this.roomUserMap.has(roomCode)) {
+      this.roomUserMap.set(roomCode, new Set());
     }
-    this.roomUserMap.get(roomId)!.add(userId);
+    this.roomUserMap.get(roomCode)!.add(userId);
   }
 
-  private removeUserFromRoom(userId: string, roomId: string) {
-    if (this.roomUserMap.has(roomId)) {
-      this.roomUserMap.get(roomId)!.delete(userId);
+  private removeUserFromRoom(userId: string, roomCode: string) {
+    if (this.roomUserMap.has(roomCode)) {
+      this.roomUserMap.get(roomCode)!.delete(userId);
       
-      if (this.roomUserMap.get(roomId)!.size === 0) {
-        this.roomUserMap.delete(roomId);
+      if (this.roomUserMap.get(roomCode)!.size === 0) {
+        this.roomUserMap.delete(roomCode);
       }
     }
   }

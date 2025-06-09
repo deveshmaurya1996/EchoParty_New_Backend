@@ -1,6 +1,6 @@
 import { Notification } from '../models/notification.model';
-import { INotification, PaginatedResponse, PaginationQuery } from '../types';
-import { config } from '../config';
+import { INotification, PaginatedResponse } from '../types';
+import { logger } from '../utils/logger';
 
 export class NotificationService {
   static async createNotification(
@@ -10,30 +10,35 @@ export class NotificationService {
     message: string,
     data?: any
   ): Promise<INotification> {
-    return Notification.create({
-      user: userId,
-      type,
-      title,
-      message,
-      data,
-    });
+    try {
+      const notification = await Notification.create({
+        user: userId,
+        type,
+        title,
+        message,
+        data,
+      });
+
+      // Here you could emit a socket event to notify the user in real-time
+      // socketService.emitToUser(userId, 'new-notification', notification);
+
+      return notification;
+    } catch (error) {
+      logger.error('Error creating notification:', error);
+      throw error;
+    }
   }
 
   static async getNotifications(
     userId: string,
-    query: PaginationQuery & { unreadOnly?: boolean }
+    options: { page: number; limit: number; read?: boolean; type?: string }
   ): Promise<PaginatedResponse<INotification>> {
-    const page = Math.max(1, query.page || 1);
-    const limit = Math.min(
-      query.limit || config.pagination.defaultPageSize,
-      config.pagination.maxPageSize
-    );
+    const { page, limit, read, type } = options;
     const skip = (page - 1) * limit;
 
     const filter: any = { user: userId };
-    if (query.unreadOnly) {
-      filter.read = false;
-    }
+    if (read !== undefined) filter.read = read;
+    if (type) filter.type = type;
 
     const [notifications, total] = await Promise.all([
       Notification.find(filter)
@@ -62,14 +67,20 @@ export class NotificationService {
     );
   }
 
-  static async markAllAsRead(userId: string): Promise<void> {
-    await Notification.updateMany(
+  static async markAllAsRead(userId: string): Promise<number> {
+    const result = await Notification.updateMany(
       { user: userId, read: false },
       { read: true }
     );
+    return result.modifiedCount;
   }
 
-  static async deleteNotification(notificationId: string, userId: string): Promise<void> {
-    await Notification.findOneAndDelete({ _id: notificationId, user: userId });
+  static async deleteNotification(notificationId: string, userId: string): Promise<boolean> {
+    const result = await Notification.deleteOne({ _id: notificationId, user: userId });
+    return result.deletedCount > 0;
+  }
+
+  static async getUnreadCount(userId: string): Promise<number> {
+    return Notification.countDocuments({ user: userId, read: false });
   }
 }

@@ -12,28 +12,43 @@ export interface IUser {
   name: string;
   avatar?: string;
   refreshToken?: string;
+  driveAccess?: boolean; // Track if user has granted drive access
   createdAt: Date;
   updatedAt: Date;
 }
 
+export interface IMessage {
+  _id?: Types.ObjectId;
+  userId: Types.ObjectId | IUser;
+  message: string;
+  timestamp: Date;
+}
+
 export interface IRoom {
   _id: Types.ObjectId;
-  roomId:string;
+  roomId: string;
   name: string;
   owner: Types.ObjectId | IUser;
-  type: 'youtube' | 'movie';
+  type: 'youtube' | 'movie' | 'music' | 'other';
   participants: Types.ObjectId[] | IUser[];
   currentMedia?: {
     id: string;
     title: string;
     duration?: number;
     url?: string;
+    thumbnail?: string;
+    type: string; // youtube, drive, etc.
   };
   playbackState: {
     isPlaying: boolean;
     currentTime: number;
     lastUpdated: Date;
   };
+  permissions: {
+    allowParticipantControl: boolean;
+    allowedControllers: Types.ObjectId[] | IUser[];
+  };
+  messages: IMessage[];
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -78,6 +93,9 @@ export interface GoogleDriveFile {
   size: string;
   webViewLink?: string;
   webContentLink?: string;
+  thumbnailLink?: string;
+  createdTime?: string;
+  modifiedTime?: string;
 }
 
 export interface YouTubeVideo {
@@ -91,8 +109,27 @@ export interface YouTubeVideo {
 
 export interface MediaSyncData {
   roomId: string;
-  action: 'play' | 'pause' | 'seek' | 'load';
+  action: 'play' | 'pause' | 'seek' | 'load' | 'ended';
   currentTime?: number;
   mediaId?: string;
-  timestamp: number;
+  mediaData?: {
+    id: string;
+    title: string;
+    url: string;
+    duration?: number;
+    thumbnail?: string;
+    type: string;
+  };
+  timestamp?: number;
+}
+
+export interface ChatMessage {
+  roomId: string;
+  message: string;
+  replyTo?: string;
+}
+
+export interface RoomPermissionUpdate {
+  allowParticipantControl?: boolean;
+  allowedControllers?: string[];
 }
