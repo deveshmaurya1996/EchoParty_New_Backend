@@ -85,7 +85,6 @@ export class MediaService {
       
       this.oauth2Client.setCredentials({ access_token: accessToken });
       const drive = google.drive({ version: 'v3', auth: this.oauth2Client });
-
       // First, find or create the "Echo Party Videos" folder
       const folderResponse = await drive.files.list({
         q: "name='Echo Party Videos' and mimeType='application/vnd.google-apps.folder' and trashed=false",

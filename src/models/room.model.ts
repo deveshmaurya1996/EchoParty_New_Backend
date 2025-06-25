@@ -17,6 +17,15 @@ const messageSchema = new Schema({
   },
 }, { _id: true });
 
+const mediaSchema = new Schema({
+  id: String,
+  title: String,
+  duration: Number,
+  url: String,
+  thumbnail: String,
+  type: String,
+}, { _id: false });
+
 const roomSchema = new Schema<IRoom>(
   {
     roomId: {
@@ -45,12 +54,8 @@ const roomSchema = new Schema<IRoom>(
       ref: 'User',
     }],
     currentMedia: {
-      id: String,
-      title: String,
-      duration: Number,
-      url: String,
-      thumbnail: String,
-      type: String,
+      type: mediaSchema,
+      default: null,
     },
     playbackState: {
       isPlaying: {

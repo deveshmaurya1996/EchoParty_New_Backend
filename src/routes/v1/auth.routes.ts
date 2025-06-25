@@ -11,7 +11,6 @@ router.post(
   '/google/signin',
   validate([
     body('idToken').notEmpty().withMessage('ID token is required'),
-    body('requestDriveAccess').optional().isBoolean(),
   ]),
   AuthController.googleSignIn
 );
@@ -31,6 +30,9 @@ router.get('/profile', authMiddleware, AuthController.getProfile);
 // Get Drive auth URL
 router.get('/drive/auth-url', authMiddleware, AuthController.getDriveAuthUrl);
 
+// Handle Drive auth callback
+router.get('/drive/callback', authMiddleware, AuthController.handleDriveCallback);
+
 // Update Drive access
 router.post(
   '/drive/access',
@@ -39,6 +41,16 @@ router.post(
     body('hasDriveAccess').isBoolean(),
   ]),
   AuthController.updateDriveAccess
+);
+
+// Grant Drive access with access token
+router.post(
+  '/drive/grant',
+  authMiddleware,
+  validate([
+    body('accessToken').notEmpty().withMessage('Access token is required'),
+  ]),
+  AuthController.grantDriveAccess
 );
 
 export default router;

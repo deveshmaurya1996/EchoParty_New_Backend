@@ -13,6 +13,7 @@ export interface IUser {
   avatar?: string;
   refreshToken?: string;
   driveAccess?: boolean; // Track if user has granted drive access
+  googleTokens?: any; // Store Google OAuth tokens for Drive access
   createdAt: Date;
   updatedAt: Date;
 }

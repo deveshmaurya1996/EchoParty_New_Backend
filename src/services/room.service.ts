@@ -331,25 +331,46 @@ export class RoomService {
   }
   
   static async canUserControlMedia(roomId: string, userId: string): Promise<boolean> {
+    logger.info('canUserControlMedia called:', { roomId, userId });
+    
     const room = await this.getRoomById(roomId);
     
-    if (!room) return false;
+    if (!room) {
+      logger.error('Room not found in canUserControlMedia:', roomId);
+      return false;
+    }
+
+    logger.info('Room found in canUserControlMedia:', { 
+      roomId: room._id, 
+      roomCode: room.roomId,
+      owner: room.owner,
+      participantsCount: room.participants.length,
+      allowParticipantControl: room.permissions.allowParticipantControl
+    });
 
     const ownerId = typeof room.owner === 'object' ? room.owner._id.toString() : room.owner;
     
     // Owner can always control
-    if (ownerId === userId) return true;
+    if (ownerId === userId) {
+      logger.info('User is owner, allowing control');
+      return true;
+    }
 
     // Check if participant control is allowed
-    if (!room.permissions.allowParticipantControl) return false;
+    if (!room.permissions.allowParticipantControl) {
+      logger.info('Participant control not allowed');
+      return false;
+    }
 
     // If participant control is allowed, all participants can control
     // Unless there's a specific allowedControllers list
     if (room.permissions.allowedControllers && room.permissions.allowedControllers.length > 0) {
-      return room.permissions.allowedControllers.some((controller: any) => {
+      const isAllowedController = room.permissions.allowedControllers.some((controller: any) => {
         const controllerId = typeof controller === 'object' ? controller._id.toString() : controller;
         return controllerId === userId;
       });
+      logger.info('User is allowed controller:', isAllowedController);
+      return isAllowedController;
     }
 
     // If allowParticipantControl is true and no specific controllers list, all participants can control
@@ -358,6 +379,7 @@ export class RoomService {
       return participantId === userId;
     });
 
+    logger.info('User is participant:', isParticipant);
     return isParticipant;
   }
 

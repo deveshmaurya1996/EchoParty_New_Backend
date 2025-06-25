@@ -1,7 +1,9 @@
+// controllers/media.controller.ts
 import { Request, Response } from 'express';
 import { AuthRequest } from '../types';
 import { MediaService } from '../services/media.service';
 import { logger } from '../utils/logger';
+import { User } from '../models/user.model';
 
 export class MediaController {
   static searchYouTube = async (req: Request, res: Response): Promise<void> => {
@@ -36,28 +38,49 @@ export class MediaController {
     try {
       const authReq = req as AuthRequest;
       
-      if (!authReq.user!.driveAccess) {
+      // Get the user from database to ensure we have the latest data
+      const user = await User.findById(authReq.user!._id);
+      
+      if (!user) {
+        res.status(401).json({ error: 'User not found' });
+        return;
+      }
+
+      // Check if user has connected Google Drive
+      if (!user.refreshToken) {
         res.status(403).json({ 
-          error: 'Drive access not granted',
+          error: 'Google Drive not connected. Please connect your Google account.',
           needAuth: true 
         });
         return;
       }
 
-      const userToken = authReq.user!.refreshToken;
-      if (!userToken) {
-        res.status(401).json({ error: 'No authentication token found' });
+      // Check if drive access is granted
+      if (!user.driveAccess) {
+        res.status(403).json({ 
+          error: 'Drive access not granted. Please re-authorize with proper permissions.',
+          needAuth: true 
+        });
         return;
       }
 
-      const videos = await MediaService.getDriveVideos(userToken);
-      res.json({ videos });
+      const videos = await MediaService.getDriveVideos(user.refreshToken);
+      res.json({ videos, needAuth: false });
     } catch (error: any) {
       logger.error('Get drive videos error:', error);
       
       if (error.message.includes('insufficient authentication scopes')) {
         res.status(403).json({ 
           error: 'Insufficient permissions. Please re-authenticate with Drive access',
+          needAuth: true 
+        });
+        return;
+      }
+
+      if (error.message.includes('invalid_grant') || error.response?.status === 401) {
+        // Token expired or revoked
+        res.status(403).json({ 
+          error: 'Google authorization expired. Please reconnect your Google account.',
           needAuth: true 
         });
         return;
@@ -72,18 +95,23 @@ export class MediaController {
       const authReq = req as AuthRequest;
       const { fileId } = req.params;
       
-      if (!authReq.user!.driveAccess) {
-        res.status(403).json({ error: 'Drive access not granted' });
+      // Get the user from database
+      const user = await User.findById(authReq.user!._id);
+      
+      if (!user) {
+        res.status(401).json({ error: 'User not found' });
         return;
       }
 
-      const userToken = authReq.user!.refreshToken;
-      if (!userToken) {
-        res.status(401).json({ error: 'No authentication token found' });
+      if (!user.refreshToken || !user.driveAccess) {
+        res.status(403).json({ 
+          error: 'Drive access not granted',
+          needAuth: true 
+        });
         return;
       }
 
-      const streamUrl = await MediaService.getDriveVideoStreamUrl(userToken, fileId);
+      const streamUrl = await MediaService.getDriveVideoStreamUrl(user.refreshToken, fileId);
       res.json({ streamUrl });
     } catch (error) {
       logger.error('Get drive video stream error:', error);

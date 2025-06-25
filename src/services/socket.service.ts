@@ -112,15 +112,22 @@ export class SocketService {
       try {
         const { roomId: roomCode, action, currentTime, mediaId, mediaData } = data;
         
+        logger.info('Media sync received:', { roomCode, action, userId: socket.data.userId });
+        
         // Get room by code first
         const room = await RoomService.getRoomByCode(roomCode);
         if (!room) {
+          logger.error('Room not found by code:', roomCode);
           socket.emit('error', { message: 'Room not found' });
           return;
         }
 
+        logger.info('Room found:', { roomId: room._id, roomCode: room.roomId });
+
         // Check if user can control media using MongoDB _id
         const canControl = await RoomService.canUserControlMedia(room._id.toString(), userId);
+        
+        logger.info('Can user control media:', { userId, canControl });
         
         if (!canControl) {
           socket.emit('error', { message: 'You do not have permission to control media' });
