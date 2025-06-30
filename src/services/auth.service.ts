@@ -12,13 +12,6 @@ export class AuthService {
     config.google.redirectLink
   );
 
-  // Separate OAuth2Client for Drive operations
-  static driveOAuth2Client = new OAuth2Client(
-    config.google.drive.clientId || config.google.clientId,
-    config.google.drive.clientSecret || config.google.clientSecret,
-    config.google.drive.redirectUri || config.google.redirectLink
-  );
-
   static generateToken(user: IUser): string {
     return jwt.sign({ userId: user._id }, config.jwt.secret, {
       expiresIn: config.jwt.expiresIn,
@@ -38,7 +31,6 @@ export class AuthService {
       email: user.email,
       name: user.name,
       avatar: user.avatar,
-      driveAccess: user.driveAccess,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt
     }
@@ -58,13 +50,8 @@ export class AuthService {
           email: profile.emails[0].value,
           name: profile.displayName,
           avatar: profile.photos[0]?.value,
-          driveAccess: profile.driveAccess || false,
         });
         logger.info(`New user created: ${user.email}`);
-      } else if (profile.driveAccess && !user.driveAccess) {
-        // Update drive access if requested
-        user.driveAccess = true;
-        await user.save();
       }
 
       return user;
@@ -124,54 +111,16 @@ export class AuthService {
     }
   }
 
-  static getGoogleAuthUrl(includeDriveScope: boolean = false): string {
+  static getGoogleAuthUrl(): string {
     const scopes = [
       'https://www.googleapis.com/auth/userinfo.profile',
       'https://www.googleapis.com/auth/userinfo.email',
     ];
-
-    if (includeDriveScope) {
-      scopes.push('https://www.googleapis.com/auth/drive');
-    }
 
     return this.oauth2Client.generateAuthUrl({
       access_type: 'offline',
       scope: scopes,
       prompt: 'consent',
     });
-  }
-
-  static async updateDriveAccess(userId: string, hasDriveAccess: boolean): Promise<void> {
-    await User.findByIdAndUpdate(userId, { driveAccess: hasDriveAccess });
-  }
-
-  static async updateGoogleTokens(userId: string, tokens: any): Promise<void> {
-    await User.findByIdAndUpdate(userId, { 
-      googleTokens: tokens 
-    });
-  }
-
-  static async getGoogleTokenFromRefreshToken(refreshToken: string): Promise<string> {
-    try {
-      // Try with the Drive OAuth2Client first, fallback to main OAuth2Client
-      let oauth2Client = this.driveOAuth2Client;
-      
-      // If Drive client is not configured, use the main client
-      if (!config.google.drive.clientId) {
-        oauth2Client = this.oauth2Client;
-      }
-      
-      oauth2Client.setCredentials({ refresh_token: refreshToken });
-      const { credentials } = await oauth2Client.refreshAccessToken();
-      
-      if (!credentials.access_token) {
-        throw new Error('No access token received from refresh');
-      }
-      
-      return credentials.access_token;
-    } catch (error) {
-      logger.error('Error refreshing Google token:', error);
-      throw new Error('Failed to refresh Google token');
-    }
   }
 }

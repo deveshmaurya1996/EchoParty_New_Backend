@@ -12,8 +12,6 @@ export interface IUser {
   name: string;
   avatar?: string;
   refreshToken?: string;
-  driveAccess?: boolean; // Track if user has granted drive access
-  googleTokens?: any; // Store Google OAuth tokens for Drive access
   createdAt: Date;
   updatedAt: Date;
 }
@@ -133,4 +131,70 @@ export interface ChatMessage {
 export interface RoomPermissionUpdate {
   allowParticipantControl?: boolean;
   allowedControllers?: string[];
+}
+
+export interface CloudflareVideo {
+  id: string;
+  key: string;
+  name: string;
+  size: number;
+  contentType: string;
+  uploadedAt: string;
+  duration?: number;
+  streamUrl?: string;
+}
+
+export interface IVideo {
+  _id: Types.ObjectId;
+  userId: Types.ObjectId;
+  videoId: string;
+  telegramFileId: string;
+  telegramMessageId: string;
+  originalName: string;
+  fileName: string;
+  r2Key: string;
+  streamUrl?: string;
+  thumbnailUrl?: string;
+  size: number;
+  contentType: string;
+  encodingStatus: 'processing' | 'completed' | 'failed';
+  encodingProgress: number;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface VideoResponse {
+  id: string;
+  videoId: string;
+  telegramFileId: string;
+  originalName: string;
+  fileName: string;
+  streamUrl?: string;
+  size: number;
+  contentType: string;
+  encodingStatus: 'processing' | 'completed' | 'failed';
+  encodingProgress: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface VideoUploadResponse {
+  videoId: string;
+  originalName: string;
+  encodingStatus: string;
+  uploadedAt: string;
+}
+
+export interface UserVideo {
+  id: string;
+  videoId: string;
+  originalName: string;
+  fileName: string;
+  streamUrl?: string;
+  size: number;
+  encodingStatus: 'processing' | 'completed' | 'failed';
+  encodingProgress: number;
+  createdAt: string;
+  uploadedAt: string;
 }

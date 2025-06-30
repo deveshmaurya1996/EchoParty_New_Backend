@@ -1,7 +1,7 @@
 import dotenv from 'dotenv';
+import path from 'path';
+
 dotenv.config();
-
-
 
 export const config = {
   app: {
@@ -22,12 +22,23 @@ export const config = {
     clientId: process.env.GOOGLE_CLIENT_ID || '',
     clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
     redirectLink: process.env.GOOGLE_AUTH_REDIRECT_LINK,
-    drive: {
-      clientId: process.env.GOOGLE_DRIVE_CLIENT_ID || '',
-      clientSecret: process.env.GOOGLE_DRIVE_CLIENT_SECRET || '',
-      redirectUri: process.env.GOOGLE_DRIVE_REDIRECT_URI || '',
-      scope: process.env.GOOGLE_DRIVE_SCOPE || '',
+  },
+  cloudflare: {
+    r2: {
+      accountId: process.env.CLOUDFLARE_ACCOUNT_ID || '',
+      accessKeyId: process.env.CLOUDFLARE_ACCESS_KEY_ID || '',
+      secretAccessKey: process.env.CLOUDFLARE_SECRET_ACCESS_KEY || '',
+      bucketName: process.env.CLOUDFLARE_BUCKET_NAME || '',
+      endpoint: process.env.CLOUDFLARE_R2_ENDPOINT || '',
+      publicUrl: process.env.CLOUDFLARE_PUBLIC_URL || '',
     },
+    stream: {
+      token: process.env.CLOUDFLARE_STREAM_TOKEN || '',
+    }
+  },
+  storage: {
+    maxTotalSize: 1024 * 1024 * 1024, // 1GB
+    maxFileSize: 100 * 1024 * 1024, // 100MB
   },
   youtube: {
     apiKey: process.env.YOUTUBE_API_KEY || '',
@@ -54,5 +65,10 @@ export const config = {
   pagination: {
     defaultPageSize: parseInt(process.env.DEFAULT_PAGE_SIZE || '10', 10),
     maxPageSize: parseInt(process.env.MAX_PAGE_SIZE || '100', 10),
+  },
+  telegram: {
+    botToken: process.env.TELEGRAM_BOT_TOKEN || '',
+    channelId: process.env.TELEGRAM_CHANNEL_ID || '',
+    apiBaseUrl: 'https://api.telegram.org',
   },
 };

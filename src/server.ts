@@ -5,12 +5,12 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import compression from 'compression';
 import rateLimit from 'express-rate-limit';
-import { config } from './config';
-import { connectDatabase } from './config/database';
-import { SocketService } from './services/socket.service';
-import { logger } from './utils/logger';
-import { errorHandler, notFound } from './middleware/error.middleware';
-import routes from './routes/v1';
+import { config } from './config/index.js';
+import { connectDatabase } from './config/database.js';
+import { SocketService } from './services/socket.service.js';
+import { logger } from './utils/logger.js';
+import { errorHandler, notFound } from './middleware/error.middleware.js';
+import routes from './routes/v1/index.js';
 
 const app = express();
 const server = createServer(app);

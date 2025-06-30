@@ -1,9 +1,11 @@
 // controllers/media.controller.ts
 import { Request, Response } from 'express';
 import { AuthRequest } from '../types';
-import { MediaService } from '../services/media.service';
-import { logger } from '../utils/logger';
-import { User } from '../models/user.model';
+import { MediaService } from '../services/media.service.js';
+import { TelegramService } from '../services/telegram.service.js';
+import { logger } from '../utils/logger.js';
+import axios from 'axios';
+import { config } from '../config/index.js';
 
 export class MediaController {
   static searchYouTube = async (req: Request, res: Response): Promise<void> => {
@@ -34,88 +36,144 @@ export class MediaController {
     }
   };
 
-  static getDriveVideos = async (req: Request, res: Response): Promise<void> => {
+  // User video upload endpoint
+  static async uploadVideo(req: Request, res: Response) {
     try {
-      const authReq = req as AuthRequest;
-      
-      // Get the user from database to ensure we have the latest data
-      const user = await User.findById(authReq.user!._id);
-      
-      if (!user) {
-        res.status(401).json({ error: 'User not found' });
-        return;
+      if (!req.file) {
+        return res.status(400).json({ error: 'No video file provided' });
       }
 
-      // Check if user has connected Google Drive
-      if (!user.refreshToken) {
-        res.status(403).json({ 
-          error: 'Google Drive not connected. Please connect your Google account.',
-          needAuth: true 
-        });
-        return;
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: 'User not authenticated' });
       }
 
-      // Check if drive access is granted
-      if (!user.driveAccess) {
-        res.status(403).json({ 
-          error: 'Drive access not granted. Please re-authorize with proper permissions.',
-          needAuth: true 
-        });
-        return;
-      }
+      const result = await MediaService.uploadVideo(
+        userId,
+        req.file.buffer,
+        req.file.originalname,
+        req.file.mimetype
+      );
 
-      const videos = await MediaService.getDriveVideos(user.refreshToken);
-      res.json({ videos, needAuth: false });
+      res.status(201).json(result);
     } catch (error: any) {
-      logger.error('Get drive videos error:', error);
-      
-      if (error.message.includes('insufficient authentication scopes')) {
-        res.status(403).json({ 
-          error: 'Insufficient permissions. Please re-authenticate with Drive access',
-          needAuth: true 
-        });
-        return;
-      }
-
-      if (error.message.includes('invalid_grant') || error.response?.status === 401) {
-        // Token expired or revoked
-        res.status(403).json({ 
-          error: 'Google authorization expired. Please reconnect your Google account.',
-          needAuth: true 
-        });
-        return;
-      }
-      
-      res.status(500).json({ error: 'Failed to fetch drive videos' });
+      logger.error('Upload video error:', error);
+      res.status(500).json({ error: error.message || 'Failed to upload video' });
     }
-  };
+  }
 
-  static getDriveVideoStream = async (req: Request, res: Response): Promise<void> => {
+  // Get user's videos
+  static async getUserVideos(req: Request, res: Response) {
     try {
-      const authReq = req as AuthRequest;
-      const { fileId } = req.params;
-      
-      // Get the user from database
-      const user = await User.findById(authReq.user!._id);
-      
-      if (!user) {
-        res.status(401).json({ error: 'User not found' });
-        return;
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: 'User not authenticated' });
       }
 
-      if (!user.refreshToken || !user.driveAccess) {
-        res.status(403).json({ 
-          error: 'Drive access not granted',
-          needAuth: true 
-        });
-        return;
-      }
-
-      const streamUrl = await MediaService.getDriveVideoStreamUrl(user.refreshToken, fileId);
-      res.json({ streamUrl });
-    } catch (error) {
-      logger.error('Get drive video stream error:', error);
-      res.status(500).json({ error: 'Failed to get video stream' });
+      const videos = await MediaService.getUserVideos(userId);
+      res.json(videos);
+    } catch (error: any) {
+      logger.error('Get user videos error:', error);
+      res.status(500).json({ error: error.message || 'Failed to get user videos' });
     }
-  };
+  }
+
+  // Get specific video by ID
+  static async getVideo(req: Request, res: Response) {
+    try {
+      const { videoId } = req.params;
+      const userId = req.user?.id;
+
+      if (!userId) {
+        return res.status(401).json({ error: 'User not authenticated' });
+      }
+
+      const video = await MediaService.getVideo(videoId);
+      if (!video) {
+        return res.status(404).json({ error: 'Video not found' });
+      }
+
+      res.json(video);
+    } catch (error: any) {
+      logger.error('Get video error:', error);
+      res.status(500).json({ error: error.message || 'Failed to get video' });
+    }
+  }
+
+  // Delete video
+  static async deleteVideo(req: Request, res: Response) {
+    try {
+      const { videoId } = req.params;
+      const userId = req.user?.id;
+
+      if (!userId) {
+        return res.status(401).json({ error: 'User not authenticated' });
+      }
+
+      await MediaService.deleteVideo(userId, videoId);
+      res.status(204).send();
+    } catch (error: any) {
+      logger.error('Delete video error:', error);
+      res.status(500).json({ error: error.message || 'Failed to delete video' });
+    }
+  }
+
+  // Refresh stream URL
+  static async refreshStreamUrl(req: Request, res: Response) {
+    try {
+      const { videoId } = req.params;
+      const userId = req.user?.id;
+
+      if (!userId) {
+        return res.status(401).json({ error: 'User not authenticated' });
+      }
+
+      const streamUrl = await MediaService.refreshStreamUrl(userId, videoId);
+      res.json({ streamUrl });
+    } catch (error: any) {
+      logger.error('Refresh stream URL error:', error);
+      res.status(500).json({ error: error.message || 'Failed to refresh stream URL' });
+    }
+  }
+
+  // Stream video
+  static async streamVideo(req: Request, res: Response) {
+    try {
+      const { fileId } = req.params;
+      const response = await TelegramService.getChannelMessages();
+      const message = response.find(msg => msg.video.file_id === fileId);
+
+      if (!message) {
+        return res.status(404).json({ error: 'Video not found' });
+      }
+
+      // Get file info from Telegram
+      const fileInfo = await axios.get(
+        `${config.telegram.apiBaseUrl}/bot${config.telegram.botToken}/getFile?file_id=${fileId}`
+      );
+
+      if (!fileInfo.data.ok) {
+        return res.status(404).json({ error: 'Video file not found' });
+      }
+
+      const filePath = fileInfo.data.result.file_path;
+      const streamUrl = `${config.telegram.apiBaseUrl}/file/bot${config.telegram.botToken}/${filePath}`;
+
+      // Proxy the video stream
+      const videoStream = await axios.get(streamUrl, {
+        responseType: 'stream'
+      });
+
+      // Set headers
+      res.setHeader('Content-Type', message.video.mime_type);
+      res.setHeader('Content-Length', message.video.file_size);
+      res.setHeader('Accept-Ranges', 'bytes');
+
+      // Pipe the video stream to response
+      videoStream.data.pipe(res);
+    } catch (error: any) {
+      logger.error('Stream video error:', error);
+      res.status(500).json({ error: error.message || 'Failed to stream video' });
+    }
+  }
 }
