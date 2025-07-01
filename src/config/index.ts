@@ -37,8 +37,8 @@ export const config = {
     }
   },
   storage: {
-    maxTotalSize: 1024 * 1024 * 1024, // 1GB
-    maxFileSize: 100 * 1024 * 1024, // 100MB
+    maxTotalSize: 10 * 1024 * 1024 * 1024, // 10GB total storage
+    maxFileSize: 2 * 1024 * 1024 * 1024, // 2GB per file
   },
   youtube: {
     apiKey: process.env.YOUTUBE_API_KEY || '',
@@ -66,9 +66,8 @@ export const config = {
     defaultPageSize: parseInt(process.env.DEFAULT_PAGE_SIZE || '10', 10),
     maxPageSize: parseInt(process.env.MAX_PAGE_SIZE || '100', 10),
   },
-  telegram: {
-    botToken: process.env.TELEGRAM_BOT_TOKEN || '',
-    channelId: process.env.TELEGRAM_CHANNEL_ID || '',
-    apiBaseUrl: 'https://api.telegram.org',
+  publitio: {
+    apiKey: process.env.PUBLITIO_API_KEY || '',
+    apiSecret: process.env.PUBLITIO_API_SECRET || '',
   },
 };

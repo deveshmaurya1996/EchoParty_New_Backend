@@ -47,7 +47,8 @@
     "nanoid": "^5.1.5",
     "socket.io": "^4.7.4",
     "uuid": "^9.0.1",
-    "winston": "^3.11.0"
+    "winston": "^3.11.0",
+    "publitio_js_sdk": "^1.1.5"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",

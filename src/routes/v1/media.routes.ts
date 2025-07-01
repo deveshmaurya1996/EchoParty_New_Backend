@@ -4,6 +4,7 @@ import { authMiddleware } from '../../middleware/auth.middleware.js';
 import { validate } from '../../middleware/validation.middleware';
 import { query, param } from 'express-validator';
 import multer from 'multer';
+import { config } from '../../config';
 
 const router = Router();
 
@@ -11,7 +12,7 @@ const router = Router();
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 500 * 1024 * 1024, // 500MB limit
+    fileSize: config.storage.maxFileSize, // Use config value (2GB)
   },
   fileFilter: (req, file, cb) => {
     const allowedTypes = ['video/mp4', 'video/avi', 'video/mov', 'video/wmv', 'video/flv', 'video/webm', 'video/mkv'];

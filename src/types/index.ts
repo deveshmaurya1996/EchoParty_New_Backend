@@ -1,8 +1,12 @@
 import { Request } from 'express';
 import { Types } from 'mongoose';
 
+export interface AuthUser {
+  _id: Types.ObjectId;
+}
+
 export interface AuthRequest extends Request {
-  user?: IUser;
+  user?: AuthUser;
 }
 
 export interface IUser {
@@ -170,11 +174,9 @@ export interface VideoResponse {
   telegramFileId: string;
   originalName: string;
   fileName: string;
-  streamUrl?: string;
+  streamUrl: string;
   size: number;
   contentType: string;
-  encodingStatus: 'processing' | 'completed' | 'failed';
-  encodingProgress: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -182,8 +184,10 @@ export interface VideoResponse {
 export interface VideoUploadResponse {
   videoId: string;
   originalName: string;
-  encodingStatus: string;
+  streamUrl: string;
   uploadedAt: string;
+  isMultipart: boolean;
+  totalParts: number;
 }
 
 export interface UserVideo {
@@ -191,10 +195,8 @@ export interface UserVideo {
   videoId: string;
   originalName: string;
   fileName: string;
-  streamUrl?: string;
+  streamUrl: string;
   size: number;
-  encodingStatus: 'processing' | 'completed' | 'failed';
-  encodingProgress: number;
   createdAt: string;
   uploadedAt: string;
 }

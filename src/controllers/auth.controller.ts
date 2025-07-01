@@ -5,6 +5,7 @@ import { AuthService } from '../services/auth.service';
 import { logger } from '../utils/logger';
 import { config } from '../config';
 import { AuthRequest } from '../types';
+import { User } from '../models/user.model';
 
 const googleClient = new OAuth2Client(config.google.clientId);
 
@@ -62,32 +63,58 @@ export class AuthController {
   static refreshToken = async (req: Request, res: Response): Promise<void> => {
     try {
       const { refreshToken } = req.body;
+
+      if (!refreshToken) {
+        res.status(400).json({
+          success: false,
+          error: 'Refresh token is required'
+        });
+        return;
+      }
+
       const tokens = await AuthService.refreshTokens(refreshToken);
+      
       res.json({ 
         success: true, 
         data: tokens 
       });
-    } catch (error) {
-      res.status(401).json({ 
-        success: false, 
-        error: 'Invalid refresh token' 
-      });
+    } catch (error: any) {
+      logger.error('Token refresh error:', error);
+      
+      // Handle specific error cases
+      if (error.message === 'Invalid refresh token') {
+        res.status(401).json({
+          success: false,
+          error: 'Invalid or expired refresh token. Please log in again.'
+        });
+      } else {
+        res.status(500).json({ 
+          success: false, 
+          error: 'Failed to refresh token. Please try again.' 
+        });
+      }
     }
   };
 
   static getProfile = async (req: Request, res: Response): Promise<void> => {
     try {
-      const user = (req as AuthRequest).user;
-      if (!user) {
+      const authUser = (req as AuthRequest).user;
+      if (!authUser?._id) {
         throw new Error('User not found');
       }
-      const freshUser = await AuthService.getUserProfile(user)
+
+      // Get the full user from database
+      const user = await User.findById(authUser._id);
+      if (!user) {
+        throw new Error('User not found in database');
+      }
 
       res.json({ 
         success: true, 
-        data: freshUser
+        data: user.toObject()
       });
     } catch (error) {
+      logger.error('Get profile error:', error);
       res.status(500).json({ 
         success: false, 
         error: 'Failed to get profile' 

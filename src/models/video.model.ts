@@ -1,72 +1,62 @@
 import mongoose from 'mongoose';
-import { IVideo } from '../types/index.js';
 
-const videoSchema = new mongoose.Schema<IVideo>({
+const videoSchema = new mongoose.Schema({
   userId: {
     type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
     required: true,
-    ref: 'User'
   },
-  videoId: {
-    type: String,
-    required: true,
-    unique: true
-  },
-  telegramFileId: {
+  publitioId: {
     type: String,
     required: true,
-    unique: true
   },
-  telegramMessageId: {
+  title: {
     type: String,
-    required: true
+    required: true,
   },
-  originalName: {
+  description: {
     type: String,
-    required: true
-  },
-  fileName: {
-    type: String,
-    required: true
-  },
-  r2Key: {
-    type: String,
-    required: true
-  },
-  size: {
-    type: Number,
-    required: true
-  },
-  contentType: {
-    type: String,
-    required: true
+    default: '',
   },
   streamUrl: {
     type: String,
-    required: false
+    required: true,
   },
   thumbnailUrl: {
     type: String,
-    required: false
+    required: false,
   },
-  encodingStatus: {
-    type: String,
-    enum: ['processing', 'completed', 'failed'],
-    default: 'processing'
-  },
-  encodingProgress: {
+  size: {
     type: Number,
-    default: 0
+    required: true,
+  },
+  duration: {
+    type: Number,
+    default: 0,
   },
   isActive: {
     type: Boolean,
-    default: true
-  }
+    default: true,
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now,
+  },
+  updatedAt: {
+    type: Date,
+    default: Date.now,
+  },
 }, {
-  timestamps: true
+  timestamps: true,
 });
 
 // Index for efficient user video queries
 videoSchema.index({ userId: 1, isActive: 1 });
+videoSchema.index({ publitioId: 1 });
 
-export const Video = mongoose.model<IVideo>('Video', videoSchema); 
+videoSchema.pre('save', function(next) {
+  this.updatedAt = new Date();
+  next();
+});
+
+export const Video = mongoose.model('Video', videoSchema); 

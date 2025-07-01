@@ -62,35 +62,69 @@ export class AuthService {
   }
 
   static async updateRefreshToken(userId: string, refreshToken: string | null): Promise<void> {
-    await User.findByIdAndUpdate(userId, { refreshToken });
+    try {
+      await User.findByIdAndUpdate(userId, { refreshToken });
+      logger.info(`Updated refresh token for user: ${userId}`);
+    } catch (error) {
+      logger.error(`Failed to update refresh token for user ${userId}:`, error);
+      throw error;
+    }
   }
 
   static async validateRefreshToken(token: string): Promise<IUser | null> {
     try {
+      // First verify the token is valid JWT
       const decoded = jwt.verify(token, config.jwt.secret) as any;
+      logger.info('Refresh token decoded successfully');
       
+      // Check if it's actually a refresh token
       if (decoded.type !== 'refresh') {
+        logger.warn('Token is not a refresh token');
         return null;
       }
 
+      // Find the user and verify the refresh token matches
       const user = await User.findById(decoded.userId);
       
-      if (!user || user.refreshToken !== token) {
+      if (!user) {
+        logger.warn(`User not found for ID: ${decoded.userId}`);
         return null;
       }
 
+      if (user.refreshToken !== token) {
+        logger.warn(`Stored refresh token doesn't match for user: ${decoded.userId}`);
+        return null;
+      }
+
+      logger.info(`Refresh token validated successfully for user: ${user.email}`);
       return user;
     } catch (error) {
+      if (error instanceof jwt.TokenExpiredError) {
+        logger.warn('Refresh token has expired');
+      } else if (error instanceof jwt.JsonWebTokenError) {
+        logger.warn('Invalid refresh token format');
+      } else {
+        logger.error('Error validating refresh token:', error);
+      }
       return null;
     }
   }
 
   static async refreshTokens(refreshToken: string) {
-    const user = await this.validateRefreshToken(refreshToken);
-    if (!user) {
-      throw new Error('Invalid refresh token');
+    try {
+      const user = await this.validateRefreshToken(refreshToken);
+      if (!user) {
+        logger.warn('Invalid or expired refresh token');
+        throw new Error('Invalid refresh token');
+      }
+      
+      logger.info(`Generating new tokens for user: ${user.email}`);
+      const tokens = await this.generateTokens(user);
+      return tokens;
+    } catch (error) {
+      logger.error('Error refreshing tokens:', error);
+      throw error;
     }
-    return this.generateTokens(user);
   }
 
   static async getUserProfile(user: IUser) {

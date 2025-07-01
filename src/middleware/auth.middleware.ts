@@ -1,9 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { AuthRequest, IUser } from '../types';
+import { AuthRequest, AuthUser } from '../types';
 import { config } from '../config';
 import { logger } from '../utils/logger';
-
+import { Types } from 'mongoose';
 
 export const authMiddleware = (
   req: Request,
@@ -30,8 +30,11 @@ export const authMiddleware = (
       });
     }
 
-    // For now, just set the userId. In a real app, you might want to fetch the full user
-    (req as AuthRequest).user = { _id: decoded.userId } as unknown as IUser;
+    // Set the user object with MongoDB ObjectId
+    (req as AuthRequest).user = { 
+      _id: new Types.ObjectId(decoded.userId)
+    } as AuthUser;
+    
     next();
   } catch (error) {
     logger.error('JWT verification error:', error);
